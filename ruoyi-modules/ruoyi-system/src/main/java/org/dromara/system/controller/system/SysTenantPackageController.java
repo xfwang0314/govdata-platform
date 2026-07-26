@@ -11,7 +11,7 @@ import org.dromara.common.idempotent.annotation.RepeatSubmit;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.system.domain.bo.SysTenantPackageBo;
 import org.dromara.system.domain.vo.SysTenantPackageVo;
@@ -46,8 +46,8 @@ public class SysTenantPackageController extends BaseController {
     @SaCheckRole(TenantConstants.SUPER_ADMIN_ROLE_KEY)
     @SaCheckPermission("system:tenantPackage:list")
     @GetMapping("/list")
-    public TableDataInfo<SysTenantPackageVo> list(SysTenantPackageBo bo, PageQuery pageQuery) {
-        return tenantPackageService.queryPageList(bo, pageQuery);
+    public R<PageResult<SysTenantPackageVo>> list(SysTenantPackageBo bo, PageQuery pageQuery) {
+        return R.ok(tenantPackageService.queryPageList(bo, pageQuery));
     }
 
     /**

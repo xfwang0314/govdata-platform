@@ -1,12 +1,15 @@
 package org.dromara.demo.domain.bo;
 
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.demo.domain.TestDemo;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,9 +22,13 @@ import jakarta.validation.constraints.NotNull;
  */
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = TestDemo.class, reverseConvertGenerate = false)
-public class TestDemoBo extends BaseEntity {
+public class TestDemoBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private Map<String, Object> params = new HashMap<>();
 
     /**
      * 主键

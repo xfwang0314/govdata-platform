@@ -9,7 +9,7 @@ import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.enums.BusinessStatusEnum;
-import org.dromara.common.core.service.UserService;
+import org.dromara.system.api.UserService;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.warm.flow.core.FlowEngine;

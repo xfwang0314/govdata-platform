@@ -3,7 +3,7 @@ package org.dromara.common.satoken.core.service;
 import cn.dev33.satoken.stp.StpInterface;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
-import org.dromara.common.core.domain.model.LoginUser;
+import org.dromara.system.api.model.LoginUser;
 import org.dromara.common.core.enums.UserType;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.service.PermissionService;

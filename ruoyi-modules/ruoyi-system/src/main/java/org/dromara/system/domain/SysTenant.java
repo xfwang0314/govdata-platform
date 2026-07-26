@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.io.Serial;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 租户对象 sys_tenant
@@ -82,7 +82,7 @@ public class SysTenant extends BaseEntity {
     /**
      * 过期时间
      */
-    private Date expireTime;
+    private LocalDateTime expireTime;
 
     /**
      * 用户数量（-1不限制）

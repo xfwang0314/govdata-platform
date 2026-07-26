@@ -1,7 +1,7 @@
 package org.dromara.generator.service;
 
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.generator.domain.GenTable;
 import org.dromara.generator.domain.GenTableColumn;
 
@@ -29,7 +29,7 @@ public interface IGenTableService {
      * @param genTable 业务信息
      * @return 业务集合
      */
-    TableDataInfo<GenTable> selectPageGenTableList(GenTable genTable, PageQuery pageQuery);
+    PageResult<GenTable> selectPageGenTableList(GenTable genTable, PageQuery pageQuery);
 
     /**
      * 查询据库列表
@@ -37,7 +37,7 @@ public interface IGenTableService {
      * @param genTable 业务信息
      * @return 数据库表集合
      */
-    TableDataInfo<GenTable> selectPageDbTableList(GenTable genTable, PageQuery pageQuery);
+    PageResult<GenTable> selectPageDbTableList(GenTable genTable, PageQuery pageQuery);
 
     /**
      * 查询据库列表

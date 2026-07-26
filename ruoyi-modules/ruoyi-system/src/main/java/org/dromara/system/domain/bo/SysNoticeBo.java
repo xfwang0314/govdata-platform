@@ -1,12 +1,13 @@
 package org.dromara.system.domain.bo;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 import io.github.linpeilie.annotations.AutoMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import org.dromara.common.core.xss.Xss;
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.system.domain.SysNotice;
 
 /**
@@ -16,9 +17,11 @@ import org.dromara.system.domain.SysNotice;
  */
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = SysNotice.class, reverseConvertGenerate = false)
-public class SysNoticeBo extends BaseEntity {
+public class SysNoticeBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 公告ID

@@ -10,14 +10,14 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.constant.CacheNames;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.core.exception.ServiceException;
-import org.dromara.common.core.service.ConfigService;
+import org.dromara.system.api.ConfigService;
 import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.ObjectUtils;
 import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.redis.utils.CacheUtils;
 import org.dromara.common.tenant.helper.TenantHelper;
 import org.dromara.system.domain.SysConfig;
@@ -51,10 +51,10 @@ public class SysConfigServiceImpl implements ISysConfigService, ConfigService {
      * @return 参数配置分页列表
      */
     @Override
-    public TableDataInfo<SysConfigVo> selectPageConfigList(SysConfigBo config, PageQuery pageQuery) {
+    public PageResult<SysConfigVo> selectPageConfigList(SysConfigBo config, PageQuery pageQuery) {
         LambdaQueryWrapper<SysConfig> lqw = buildQueryWrapper(config);
         Page<SysConfigVo> page = baseMapper.selectVoPage(pageQuery.build(), lqw);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**

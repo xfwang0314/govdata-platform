@@ -16,7 +16,7 @@ import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.constant.ExceptionCons;
@@ -81,11 +81,11 @@ public class FlwInstanceServiceImpl implements IFlwInstanceService {
      * @param pageQuery      分页
      */
     @Override
-    public TableDataInfo<FlowInstanceVo> selectRunningInstanceList(FlowInstanceBo flowInstanceBo, PageQuery pageQuery) {
+    public PageResult<FlowInstanceVo> selectRunningInstanceList(FlowInstanceBo flowInstanceBo, PageQuery pageQuery) {
         QueryWrapper<FlowInstanceBo> queryWrapper = buildQueryWrapper(flowInstanceBo);
         queryWrapper.in("fi.flow_status", BusinessStatusEnum.runningStatus());
         Page<FlowInstanceVo> page = flwInstanceMapper.selectInstanceList(pageQuery.build(), queryWrapper);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**
@@ -95,11 +95,11 @@ public class FlwInstanceServiceImpl implements IFlwInstanceService {
      * @param pageQuery      分页
      */
     @Override
-    public TableDataInfo<FlowInstanceVo> selectFinishInstanceList(FlowInstanceBo flowInstanceBo, PageQuery pageQuery) {
+    public PageResult<FlowInstanceVo> selectFinishInstanceList(FlowInstanceBo flowInstanceBo, PageQuery pageQuery) {
         QueryWrapper<FlowInstanceBo> queryWrapper = buildQueryWrapper(flowInstanceBo);
         queryWrapper.in("fi.flow_status", BusinessStatusEnum.finishStatus());
         Page<FlowInstanceVo> page = flwInstanceMapper.selectInstanceList(pageQuery.build(), queryWrapper);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**
@@ -312,11 +312,11 @@ public class FlwInstanceServiceImpl implements IFlwInstanceService {
      * @param pageQuery  分页
      */
     @Override
-    public TableDataInfo<FlowInstanceVo> selectCurrentInstanceList(FlowInstanceBo instanceBo, PageQuery pageQuery) {
+    public PageResult<FlowInstanceVo> selectCurrentInstanceList(FlowInstanceBo instanceBo, PageQuery pageQuery) {
         QueryWrapper<FlowInstanceBo> queryWrapper = buildQueryWrapper(instanceBo);
         queryWrapper.eq("fi.create_by", LoginHelper.getUserIdStr());
         Page<FlowInstanceVo> page = flwInstanceMapper.selectInstanceList(pageQuery.build(), queryWrapper);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**

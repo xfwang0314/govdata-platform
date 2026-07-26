@@ -11,7 +11,7 @@ import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.system.domain.SysTenant;
 import org.dromara.system.domain.SysTenantPackage;
 import org.dromara.system.domain.bo.SysTenantPackageBo;
@@ -50,10 +50,10 @@ public class SysTenantPackageServiceImpl implements ISysTenantPackageService {
      * 查询租户套餐列表
      */
     @Override
-    public TableDataInfo<SysTenantPackageVo> queryPageList(SysTenantPackageBo bo, PageQuery pageQuery) {
+    public PageResult<SysTenantPackageVo> queryPageList(SysTenantPackageBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<SysTenantPackage> lqw = buildQueryWrapper(bo);
         Page<SysTenantPackageVo> result = baseMapper.selectVoPage(pageQuery.build(), lqw);
-        return TableDataInfo.build(result);
+        return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     @Override

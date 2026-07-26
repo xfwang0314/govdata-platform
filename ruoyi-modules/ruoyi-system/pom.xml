@@ -16,6 +16,12 @@
     </description>
 
     <dependencies>
+        <!-- API 契约模块 -->
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>ruoyi-api</artifactId>
+        </dependency>
+
         <!-- 通用工具-->
         <dependency>
             <groupId>org.dromara</groupId>
@@ -92,12 +98,7 @@
 
         <dependency>
             <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-common-websocket</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-common-sse</artifactId>
+            <artifactId>ruoyi-common-push</artifactId>
         </dependency>
 
     </dependencies>

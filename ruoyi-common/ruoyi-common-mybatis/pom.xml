@@ -16,6 +16,12 @@
     </description>
 
     <dependencies>
+        <!-- API 契约模块 -->
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>ruoyi-api</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.dromara</groupId>
             <artifactId>ruoyi-common-core</artifactId>
@@ -42,11 +48,6 @@
             <artifactId>mybatis-plus-jsqlparser</artifactId>
         </dependency>
 
-        <!-- sql性能分析插件 -->
-        <dependency>
-            <groupId>p6spy</groupId>
-            <artifactId>p6spy</artifactId>
-        </dependency>
     </dependencies>
 
 </project>

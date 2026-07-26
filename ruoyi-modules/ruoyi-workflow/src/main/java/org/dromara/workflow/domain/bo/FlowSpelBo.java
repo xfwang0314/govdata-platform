@@ -1,11 +1,14 @@
 package org.dromara.workflow.domain.bo;
 
-import org.dromara.common.mybatis.core.domain.BaseEntity;
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
 import io.github.linpeilie.annotations.AutoMapper;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import jakarta.validation.constraints.*;
 import org.dromara.workflow.domain.FlowSpel;
 
@@ -16,9 +19,13 @@ import org.dromara.workflow.domain.FlowSpel;
  * @date 2025-07-04
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = FlowSpel.class, reverseConvertGenerate = false)
-public class FlowSpelBo extends BaseEntity {
+public class FlowSpelBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private Map<String, Object> params = new HashMap<>();
 
     /**
      * 主键id

@@ -21,7 +21,7 @@
     <packaging>pom</packaging>
 
     <description>
-        ruoyi-modules 业务模块
+        ruoyi-modules 通用业务模块
     </description>
 
 </project>

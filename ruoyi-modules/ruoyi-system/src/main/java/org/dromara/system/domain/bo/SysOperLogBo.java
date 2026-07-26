@@ -6,7 +6,7 @@ import io.github.linpeilie.annotations.AutoMapper;
 import io.github.linpeilie.annotations.AutoMappers;
 import lombok.Data;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -112,7 +112,7 @@ public class SysOperLogBo {
     /**
      * 操作时间
      */
-    private Date operTime;
+    private LocalDateTime operTime;
 
     /**
      * 消耗时间

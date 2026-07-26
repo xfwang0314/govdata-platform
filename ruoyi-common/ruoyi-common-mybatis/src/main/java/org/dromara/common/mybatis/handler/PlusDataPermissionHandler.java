@@ -1,7 +1,11 @@
 package org.dromara.common.mybatis.handler;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaCheckRole;
+import cn.hutool.core.annotation.AnnotationUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.JSQLParserException;
@@ -9,14 +13,16 @@ import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import org.dromara.common.core.domain.dto.RoleDTO;
-import org.dromara.common.core.domain.model.LoginUser;
+import org.dromara.system.api.domain.RoleDTO;
+import org.dromara.system.api.model.LoginUser;
 import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.utils.ServletUtils;
 import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.annotation.DataColumn;
 import org.dromara.common.mybatis.annotation.DataPermission;
+import org.dromara.common.mybatis.core.domain.DataPermissionAccess;
 import org.dromara.common.mybatis.enums.DataScopeType;
 import org.dromara.common.mybatis.helper.DataPermissionHelper;
 import org.dromara.common.satoken.utils.LoginHelper;
@@ -25,7 +31,10 @@ import org.springframework.expression.*;
 import org.springframework.expression.common.TemplateParserContext;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerMapping;
 
+import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.function.Function;
 
@@ -57,20 +66,13 @@ public class PlusDataPermissionHandler {
      */
     public Expression getSqlSegment(Expression where, boolean isSelect) {
         try {
-            // 获取数据权限配置
-            DataPermission dataPermission = getDataPermission();
-            // 获取当前登录用户信息
-            LoginUser currentUser = DataPermissionHelper.getVariable("user");
-            if (ObjectUtil.isNull(currentUser)) {
-                currentUser = LoginHelper.getLoginUser();
-                DataPermissionHelper.setVariable("user", currentUser);
-            }
+            LoginUser currentUser = currentUser();
             // 如果是超级管理员或租户管理员，则不过滤数据
             if (LoginHelper.isSuperAdmin() || LoginHelper.isTenantAdmin()) {
                 return where;
             }
             // 构造数据过滤条件的 SQL 片段
-            String dataFilterSql = buildDataFilter(dataPermission, isSelect);
+            String dataFilterSql = buildDataFilter(getDataPermission(), currentUser, isSelect);
             if (StringUtils.isBlank(dataFilterSql)) {
                 return where;
             }
@@ -97,32 +99,28 @@ public class PlusDataPermissionHandler {
      * @return 构建的数据过滤条件的 SQL 语句
      * @throws ServiceException 如果角色的数据范围异常或者 key 与 value 的长度不匹配，则抛出 ServiceException 异常
      */
-    private String buildDataFilter(DataPermission dataPermission, boolean isSelect) {
+    private String buildDataFilter(DataPermission dataPermission, LoginUser user, boolean isSelect) {
         // 更新或删除需满足所有条件
         String joinStr = isSelect ? " OR " : " AND ";
         if (StringUtils.isNotBlank(dataPermission.joinStr())) {
             joinStr = " " + dataPermission.joinStr() + " ";
         }
-        LoginUser user = DataPermissionHelper.getVariable("user");
         Object defaultValue = "-1";
         NullSafeStandardEvaluationContext context = new NullSafeStandardEvaluationContext(defaultValue);
         context.addPropertyAccessor(new NullSafePropertyAccessor(context.getPropertyAccessors().get(0), defaultValue));
         context.setBeanResolver(beanResolver);
         DataPermissionHelper.getContext().forEach(context::setVariable);
         Set<String> conditions = new HashSet<>();
+        DataPermissionAccess access = currentAccess();
+        List<RoleDTO> scopeRoles = scopeRoles(user, access);
+        if (CollUtil.isEmpty(scopeRoles)) {
+            return access.constrained() ? " 1 = 0 " : StringUtils.EMPTY;
+        }
         // 优先设置变量
         List<String> keys = new ArrayList<>();
-        Map<DataColumn, Boolean> ignoreMap = new HashMap<>();
         for (DataColumn dataColumn : dataPermission.value()) {
             if (dataColumn.key().length != dataColumn.value().length) {
                 throw new ServiceException("角色数据范围异常 => key与value长度不匹配");
-            }
-            // 包含权限标识符 这直接跳过
-            if (StringUtils.isNotBlank(dataColumn.permission()) &&
-                CollUtil.contains(user.getMenuPermission(), dataColumn.permission())
-            ) {
-                ignoreMap.put(dataColumn, Boolean.TRUE);
-                continue;
             }
             // 设置注解变量 key 为表达式变量 value 为变量值
             for (int i = 0; i < dataColumn.key().length; i++) {
@@ -131,8 +129,8 @@ public class PlusDataPermissionHandler {
             keys.addAll(Arrays.stream(dataColumn.key()).map(key -> "#" + key).toList());
         }
 
-        for (RoleDTO role : user.getRoles()) {
-            user.setRoleId(role.getRoleId());
+        for (RoleDTO role : scopeRoles) {
+            context.setVariable("roleId", role.getRoleId());
             // 获取角色权限泛型
             DataScopeType type = DataScopeType.findCode(role.getDataScope());
             if (ObjectUtil.isNull(type)) {
@@ -144,13 +142,6 @@ public class PlusDataPermissionHandler {
             }
             boolean isSuccess = false;
             for (DataColumn dataColumn : dataPermission.value()) {
-                // 包含权限标识符 这直接跳过
-                if (ignoreMap.containsKey(dataColumn)) {
-                    // 修复多角色与权限标识符共用问题 https://gitee.com/dromara/RuoYi-Vue-Plus/issues/IB4CS4
-                    conditions.add(joinStr + " 1 = 1 ");
-                    isSuccess = true;
-                    continue;
-                }
                 // 不包含 key 变量 则不处理
                 if (!StringUtils.containsAny(type.getSqlTemplate(), keys.toArray(String[]::new))) {
                     continue;
@@ -178,6 +169,103 @@ public class PlusDataPermissionHandler {
             return sql.substring(joinStr.length());
         }
         return StringUtils.EMPTY;
+    }
+
+    private LoginUser currentUser() {
+        LoginUser currentUser = DataPermissionHelper.getVariable("user");
+        if (ObjectUtil.isNull(currentUser)) {
+            currentUser = LoginHelper.getLoginUser();
+            DataPermissionHelper.setVariable("user", currentUser);
+        }
+        return currentUser;
+    }
+
+    private DataPermissionAccess currentAccess() {
+        DataPermissionAccess access = DataPermissionHelper.getAccess();
+        if (access != null) {
+            return access;
+        }
+        access = resolveAccess();
+        DataPermissionHelper.setAccess(access);
+        return access;
+    }
+
+    /**
+     * 只使用真正授予当前接口权限的角色参与数据范围计算，避免多角色权限串用。
+     */
+    private List<RoleDTO> scopeRoles(LoginUser user, DataPermissionAccess access) {
+        List<RoleDTO> roles = user.getRoles();
+        if (!access.constrained()) {
+            return roles;
+        }
+        Map<Long, RoleDTO> allRoles = new LinkedHashMap<>();
+        if (CollUtil.isNotEmpty(roles)) {
+            roles.forEach(role -> allRoles.put(role.getRoleId(), role));
+        }
+        Map<Long, RoleDTO> matchedRoles = new LinkedHashMap<>();
+        Map<String, List<Long>> permissionRoles = user.getDataScopeRoleMap();
+        if (CollUtil.isNotEmpty(permissionRoles)) {
+            access.perms().forEach(permission -> {
+                List<Long> roleIds = permissionRoles.get(permission);
+                if (CollUtil.isNotEmpty(roleIds)) {
+                    roleIds.forEach(roleId -> {
+                        RoleDTO role = allRoles.get(roleId);
+                        if (role != null) {
+                            matchedRoles.putIfAbsent(roleId, role);
+                        }
+                    });
+                }
+            });
+        }
+        if (CollUtil.isNotEmpty(roles) && CollUtil.isNotEmpty(access.roleKeys())) {
+            roles.stream()
+                .filter(role -> StringUtils.isNotBlank(role.getRoleKey()))
+                .filter(role -> StringUtils.splitList(role.getRoleKey()).stream()
+                    .anyMatch(access.roleKeys()::contains))
+                .forEach(role -> matchedRoles.putIfAbsent(role.getRoleId(), role));
+        }
+        return new ArrayList<>(matchedRoles.values());
+    }
+
+    private DataPermissionAccess resolveAccess() {
+        HttpServletRequest request = ServletUtils.getRequest();
+        if (request == null) {
+            return DataPermissionAccess.EMPTY;
+        }
+        Object handler = request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE);
+        if (!(handler instanceof HandlerMethod handlerMethod)) {
+            return DataPermissionAccess.EMPTY;
+        }
+        Set<String> permissions = new LinkedHashSet<>();
+        Set<String> roleKeys = new LinkedHashSet<>();
+        SaCheckPermission permission = findAnnotation(handlerMethod, SaCheckPermission.class);
+        if (permission != null) {
+            permissions.addAll(toSet(permission.value()));
+            roleKeys.addAll(toSet(permission.orRole()));
+        }
+        SaCheckRole role = findAnnotation(handlerMethod, SaCheckRole.class);
+        if (role != null) {
+            roleKeys.addAll(toSet(role.value()));
+        }
+        if (permissions.isEmpty() && roleKeys.isEmpty()) {
+            return DataPermissionAccess.EMPTY;
+        }
+        return new DataPermissionAccess(Set.copyOf(permissions), Set.copyOf(roleKeys));
+    }
+
+    private <A extends Annotation> A findAnnotation(HandlerMethod handlerMethod, Class<A> type) {
+        A annotation = AnnotationUtil.getAnnotation(handlerMethod.getMethod(), type);
+        return annotation != null ? annotation
+            : AnnotationUtil.getAnnotation(handlerMethod.getBeanType(), type);
+    }
+
+    private Set<String> toSet(String[] values) {
+        if (values == null || values.length == 0) {
+            return Set.of();
+        }
+        Set<String> result = new LinkedHashSet<>();
+        Arrays.stream(values).filter(StringUtils::isNotBlank).forEach(result::add);
+        return result;
     }
 
     /**

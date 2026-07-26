@@ -13,11 +13,11 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dromara.common.core.domain.dto.StartProcessReturnDTO;
-import org.dromara.common.core.domain.dto.UserDTO;
+import org.dromara.workflow.api.domain.StartProcessReturnDTO;
+import org.dromara.system.api.domain.UserDTO;
 import org.dromara.common.core.enums.BusinessStatusEnum;
 import org.dromara.common.core.exception.ServiceException;
-import org.dromara.common.core.service.UserService;
+import org.dromara.system.api.UserService;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.core.utils.ValidatorUtils;
@@ -25,7 +25,7 @@ import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.mybatis.utils.IdGeneratorUtil;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.warm.flow.core.FlowEngine;
@@ -372,14 +372,14 @@ public class FlwTaskServiceImpl implements IFlwTaskService {
      * @param pageQuery  分页
      */
     @Override
-    public TableDataInfo<FlowTaskVo> pageByTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+    public PageResult<FlowTaskVo> pageByTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
         QueryWrapper<FlowTaskBo> queryWrapper = buildQueryWrapper(flowTaskBo);
         queryWrapper.eq("t.node_type", NodeType.BETWEEN.getKey());
         queryWrapper.in("t.processed_by", LoginHelper.getUserIdStr());
         queryWrapper.in("t.flow_status", BusinessStatusEnum.WAITING.getStatus());
         Page<FlowTaskVo> page = flwTaskMapper.getListRunTask(pageQuery.build(), queryWrapper);
         this.wrapAssigneeInfo(page.getRecords());
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**
@@ -389,12 +389,12 @@ public class FlwTaskServiceImpl implements IFlwTaskService {
      * @param pageQuery  分页
      */
     @Override
-    public TableDataInfo<FlowHisTaskVo> pageByTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+    public PageResult<FlowHisTaskVo> pageByTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
         QueryWrapper<FlowTaskBo> queryWrapper = buildQueryWrapper(flowTaskBo);
         queryWrapper.eq("t.node_type", NodeType.BETWEEN.getKey());
         queryWrapper.in("t.approver", LoginHelper.getUserIdStr());
         Page<FlowHisTaskVo> page = flwTaskMapper.getListFinishTask(pageQuery.build(), queryWrapper);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**
@@ -404,12 +404,12 @@ public class FlwTaskServiceImpl implements IFlwTaskService {
      * @param pageQuery  分页
      */
     @Override
-    public TableDataInfo<FlowTaskVo> pageByAllTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+    public PageResult<FlowTaskVo> pageByAllTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
         QueryWrapper<FlowTaskBo> queryWrapper = buildQueryWrapper(flowTaskBo);
         queryWrapper.eq("t.node_type", NodeType.BETWEEN.getKey());
         Page<FlowTaskVo> page = flwTaskMapper.getListRunTask(pageQuery.build(), queryWrapper);
         this.wrapAssigneeInfo(page.getRecords());
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**
@@ -437,10 +437,10 @@ public class FlwTaskServiceImpl implements IFlwTaskService {
      * @param pageQuery  分页
      */
     @Override
-    public TableDataInfo<FlowHisTaskVo> pageByAllTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+    public PageResult<FlowHisTaskVo> pageByAllTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
         QueryWrapper<FlowTaskBo> queryWrapper = buildQueryWrapper(flowTaskBo);
         Page<FlowHisTaskVo> page = flwTaskMapper.getListFinishTask(pageQuery.build(), queryWrapper);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     /**
@@ -450,11 +450,11 @@ public class FlwTaskServiceImpl implements IFlwTaskService {
      * @param pageQuery  分页
      */
     @Override
-    public TableDataInfo<FlowTaskVo> pageByTaskCopy(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+    public PageResult<FlowTaskVo> pageByTaskCopy(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
         QueryWrapper<FlowTaskBo> queryWrapper = buildQueryWrapper(flowTaskBo);
         queryWrapper.in("t.processed_by", LoginHelper.getUserIdStr());
         Page<FlowTaskVo> page = flwTaskMapper.getTaskCopyByPage(pageQuery.build(), queryWrapper);
-        return TableDataInfo.build(page);
+        return PageResult.build(page.getRecords(), page.getTotal());
     }
 
     private QueryWrapper<FlowTaskBo> buildQueryWrapper(FlowTaskBo flowTaskBo) {

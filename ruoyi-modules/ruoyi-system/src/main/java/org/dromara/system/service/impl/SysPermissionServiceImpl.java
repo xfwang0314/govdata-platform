@@ -4,13 +4,13 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.constant.TenantConstants;
 import org.dromara.common.core.service.PermissionService;
 import org.dromara.common.satoken.utils.LoginHelper;
+import org.dromara.system.api.domain.RoleDTO;
 import org.dromara.system.service.ISysMenuService;
 import org.dromara.system.service.ISysPermissionService;
 import org.dromara.system.service.ISysRoleService;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 /**
  * 用户权限处理
@@ -58,5 +58,20 @@ public class SysPermissionServiceImpl implements ISysPermissionService, Permissi
             perms.addAll(menuService.selectMenuPermsByUserId(userId));
         }
         return perms;
+    }
+
+    @Override
+    public Map<String, List<Long>> getDataScopeRoleMap(List<RoleDTO> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<Long>> result = new LinkedHashMap<>();
+        for (RoleDTO role : roles) {
+            Set<String> permissions = menuService.selectMenuPermsByRoleId(role.getRoleId());
+            for (String permission : permissions) {
+                result.computeIfAbsent(permission, key -> new ArrayList<>()).add(role.getRoleId());
+            }
+        }
+        return result;
     }
 }

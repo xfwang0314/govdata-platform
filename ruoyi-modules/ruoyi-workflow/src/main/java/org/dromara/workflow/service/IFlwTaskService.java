@@ -1,9 +1,9 @@
 package org.dromara.workflow.service;
 
-import org.dromara.common.core.domain.dto.StartProcessReturnDTO;
-import org.dromara.common.core.domain.dto.UserDTO;
+import org.dromara.workflow.api.domain.StartProcessReturnDTO;
+import org.dromara.system.api.domain.UserDTO;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.core.entity.Task;
 import org.dromara.warm.flow.orm.entity.FlowHisTask;
@@ -53,7 +53,7 @@ public interface IFlwTaskService {
      * @param pageQuery  分页
      * @return 结果
      */
-    TableDataInfo<FlowTaskVo> pageByTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery);
+    PageResult<FlowTaskVo> pageByTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery);
 
     /**
      * 查询当前租户所有待办任务
@@ -62,7 +62,7 @@ public interface IFlwTaskService {
      * @param pageQuery  分页
      * @return 结果
      */
-    TableDataInfo<FlowHisTaskVo> pageByTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery);
+    PageResult<FlowHisTaskVo> pageByTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery);
 
     /**
      * 查询待办任务
@@ -71,7 +71,7 @@ public interface IFlwTaskService {
      * @param pageQuery  分页
      * @return 结果
      */
-    TableDataInfo<FlowTaskVo> pageByAllTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery);
+    PageResult<FlowTaskVo> pageByAllTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery);
 
     /**
      * 查询已办任务
@@ -80,7 +80,7 @@ public interface IFlwTaskService {
      * @param pageQuery  分页
      * @return 结果
      */
-    TableDataInfo<FlowHisTaskVo> pageByAllTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery);
+    PageResult<FlowHisTaskVo> pageByAllTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery);
 
     /**
      * 查询当前用户的抄送
@@ -89,7 +89,7 @@ public interface IFlwTaskService {
      * @param pageQuery  分页
      * @return 结果
      */
-    TableDataInfo<FlowTaskVo> pageByTaskCopy(FlowTaskBo flowTaskBo, PageQuery pageQuery);
+    PageResult<FlowTaskVo> pageByTaskCopy(FlowTaskBo flowTaskBo, PageQuery pageQuery);
 
     /**
      * 修改任务办理人

@@ -2,7 +2,7 @@ package org.dromara.common.mybatis.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.dromara.common.core.domain.model.LoginUser;
+import org.dromara.system.api.model.LoginUser;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.helper.DataPermissionHelper;
 
@@ -33,7 +33,7 @@ public enum DataScopeType {
     /**
      * 自定数据权限
      */
-    CUSTOM("2", " #{#deptName} IN ( #{@sdss.getRoleCustom( #user.roleId )} ) ", " 1 = 0 "),
+    CUSTOM("2", " #{#deptName} IN ( #{@sdss.getRoleCustom( #roleId )} ) ", " 1 = 0 "),
 
     /**
      * 部门数据权限

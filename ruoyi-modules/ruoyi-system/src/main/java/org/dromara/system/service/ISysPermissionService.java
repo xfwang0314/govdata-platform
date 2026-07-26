@@ -1,5 +1,9 @@
 package org.dromara.system.service;
 
+import org.dromara.system.api.domain.RoleDTO;
+
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -24,5 +28,7 @@ public interface ISysPermissionService {
      * @return 菜单权限信息
      */
     Set<String> getMenuPermission(Long userId);
+
+    Map<String, List<Long>> getDataScopeRoleMap(List<RoleDTO> roles);
 
 }

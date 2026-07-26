@@ -1,7 +1,7 @@
 package org.dromara.system.service;
 
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.system.domain.bo.SysTenantPackageBo;
 import org.dromara.system.domain.vo.SysTenantPackageVo;
 
@@ -23,7 +23,7 @@ public interface ISysTenantPackageService {
     /**
      * 查询租户套餐列表
      */
-    TableDataInfo<SysTenantPackageVo> queryPageList(SysTenantPackageBo bo, PageQuery pageQuery);
+    PageResult<SysTenantPackageVo> queryPageList(SysTenantPackageBo bo, PageQuery pageQuery);
 
     /**
      * 查询租户套餐已启用列表

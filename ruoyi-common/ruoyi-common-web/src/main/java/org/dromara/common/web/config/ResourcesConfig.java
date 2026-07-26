@@ -1,8 +1,8 @@
 package org.dromara.common.web.config;
 
-import cn.hutool.core.date.DateTime;
-import cn.hutool.core.date.DateUtil;
-import org.dromara.common.core.utils.ObjectUtils;
+import org.dromara.common.core.utils.DateUtils;
+import org.dromara.common.json.enhance.JsonValueEnhancer;
+import org.dromara.common.web.advice.ResponseEnhancementAdvice;
 import org.dromara.common.web.handler.GlobalExceptionHandler;
 import org.dromara.common.web.interceptor.PlusWebInvokeTimeInterceptor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -15,7 +15,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 通用配置
@@ -34,13 +34,7 @@ public class ResourcesConfig implements WebMvcConfigurer {
     @Override
     public void addFormatters(FormatterRegistry registry) {
         // 全局日期格式转换配置
-        registry.addConverter(String.class, Date.class, source -> {
-            DateTime parse = DateUtil.parse(source);
-            if (ObjectUtils.isNull(parse)) {
-                return null;
-            }
-            return parse.toJdkDate();
-        });
+        registry.addConverter(String.class, LocalDateTime.class, DateUtils::parseDate);
     }
 
     @Override
@@ -75,5 +69,13 @@ public class ResourcesConfig implements WebMvcConfigurer {
     @Bean
     public GlobalExceptionHandler globalExceptionHandler() {
         return new GlobalExceptionHandler();
+    }
+
+    /**
+     * 统一处理响应字段翻译、脱敏等 JSON 增强逻辑。
+     */
+    @Bean
+    public ResponseEnhancementAdvice responseEnhancementAdvice(JsonValueEnhancer jsonValueEnhancer) {
+        return new ResponseEnhancementAdvice(jsonValueEnhancer);
     }
 }

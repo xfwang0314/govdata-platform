@@ -1,12 +1,15 @@
 package org.dromara.system.domain.bo;
 
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
 import io.github.linpeilie.annotations.AutoMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.system.domain.SysPost;
 
 /**
@@ -16,9 +19,13 @@ import org.dromara.system.domain.SysPost;
  */
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = SysPost.class, reverseConvertGenerate = false)
-public class SysPostBo extends BaseEntity {
+public class SysPostBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private Map<String, Object> params = new HashMap<>();
 
     /**
      * 岗位ID

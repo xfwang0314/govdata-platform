@@ -8,14 +8,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.constant.SystemConstants;
-import org.dromara.common.core.domain.dto.TaskAssigneeDTO;
-import org.dromara.common.core.domain.model.TaskAssigneeBody;
+import org.dromara.system.api.domain.TaskAssigneeDTO;
+import org.dromara.system.api.model.TaskAssigneeBody;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.workflow.common.ConditionalOnEnable;
 import org.dromara.workflow.domain.FlowSpel;
 import org.dromara.workflow.domain.bo.FlowSpelBo;
@@ -62,10 +62,10 @@ public class FlwSpelServiceImpl implements IFlwSpelService {
      * @return 流程spel表达式定义分页列表
      */
     @Override
-    public TableDataInfo<FlowSpelVo> queryPageList(FlowSpelBo bo, PageQuery pageQuery) {
+    public PageResult<FlowSpelVo> queryPageList(FlowSpelBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<FlowSpel> lqw = buildQueryWrapper(bo);
         Page<FlowSpelVo> result = baseMapper.selectVoPage(pageQuery.build(), lqw);
-        return TableDataInfo.build(result);
+        return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     /**
@@ -168,7 +168,7 @@ public class FlwSpelServiceImpl implements IFlwSpelService {
         Map<String, Object> params = bo.getParams();
         params.put("beginTime", taskQuery.getBeginTime());
         params.put("endTime", taskQuery.getEndTime());
-        TableDataInfo<FlowSpelVo> page = this.queryPageList(bo, pageQuery);
+        PageResult<FlowSpelVo> page = this.queryPageList(bo, pageQuery);
         // 使用封装的字段映射方法进行转换
         List<TaskAssigneeDTO.TaskHandler> handlers = TaskAssigneeDTO.convertToHandlerList(page.getRows(),
             FlowSpelVo::getViewSpel, item -> "", FlowSpelVo::getRemark, item -> "", FlowSpelVo::getCreateTime);

@@ -6,7 +6,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 系统访问记录表 sys_logininfor
@@ -80,6 +80,6 @@ public class SysLogininfor implements Serializable {
     /**
      * 访问时间
      */
-    private Date loginTime;
+    private LocalDateTime loginTime;
 
 }
