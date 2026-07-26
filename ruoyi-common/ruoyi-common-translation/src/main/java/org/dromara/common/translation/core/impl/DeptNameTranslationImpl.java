@@ -1,10 +1,16 @@
 package org.dromara.common.translation.core.impl;
 
-import org.dromara.common.core.service.DeptService;
+import cn.hutool.core.convert.Convert;
+import org.dromara.system.api.DeptService;
 import org.dromara.common.translation.annotation.TranslationType;
 import org.dromara.common.translation.constant.TransConstant;
 import org.dromara.common.translation.core.TranslationInterface;
 import lombok.AllArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 部门翻译实现
@@ -25,5 +31,20 @@ public class DeptNameTranslationImpl implements TranslationInterface<String> {
             return deptService.selectDeptNameByIds(id.toString());
         }
         return null;
+    }
+
+    @Override
+    public Map<Object, String> translationBatch(Set<Object> keys, String other) {
+        Set<Long> ids = collectLongIds(keys);
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> names = deptService.selectDeptNamesByIds(new ArrayList<>(ids));
+        Map<Object, String> result = new LinkedHashMap<>(keys.size());
+        for (Object key : keys) {
+            result.put(key, key instanceof String text
+                ? joinMappedValues(text, names::get) : names.get(Convert.toLong(key)));
+        }
+        return result;
     }
 }

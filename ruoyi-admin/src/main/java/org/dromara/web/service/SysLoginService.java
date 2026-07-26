@@ -14,9 +14,9 @@ import org.dromara.common.core.constant.CacheConstants;
 import org.dromara.common.core.constant.Constants;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.core.constant.TenantConstants;
-import org.dromara.common.core.domain.dto.PostDTO;
-import org.dromara.common.core.domain.dto.RoleDTO;
-import org.dromara.common.core.domain.model.LoginUser;
+import org.dromara.system.api.domain.PostDTO;
+import org.dromara.system.api.domain.RoleDTO;
+import org.dromara.system.api.model.LoginUser;
 import org.dromara.common.core.enums.LoginType;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.exception.user.UserException;
@@ -36,7 +36,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -166,7 +166,9 @@ public class SysLoginService {
         }
         List<SysRoleVo> roles = roleService.selectRolesByUserId(userId);
         List<SysPostVo> posts = postService.selectPostsByUserId(userId);
-        loginUser.setRoles(BeanUtil.copyToList(roles, RoleDTO.class));
+        List<RoleDTO> roleDtos = BeanUtil.copyToList(roles, RoleDTO.class);
+        loginUser.setRoles(roleDtos);
+        loginUser.setDataScopeRoleMap(permissionService.getDataScopeRoleMap(roleDtos));
         loginUser.setPosts(BeanUtil.copyToList(posts, PostDTO.class));
         return loginUser;
     }
@@ -242,7 +244,7 @@ public class SysLoginService {
             log.info("登录租户：{} 已被停用.", tenantId);
             throw new TenantException("tenant.blocked");
         } else if (ObjectUtil.isNotNull(tenant.getExpireTime())
-            && new Date().after(tenant.getExpireTime())) {
+            && LocalDateTime.now().isAfter(tenant.getExpireTime())) {
             log.info("登录租户：{} 已超过有效期.", tenantId);
             throw new TenantException("tenant.expired");
         }

@@ -7,13 +7,13 @@ import cn.hutool.core.bean.BeanUtil;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.constant.CacheConstants;
 import org.dromara.common.core.domain.R;
-import org.dromara.common.core.domain.dto.UserOnlineDTO;
+import org.dromara.system.api.domain.UserOnlineDTO;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.idempotent.annotation.RepeatSubmit;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.redis.utils.RedisUtils;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.system.domain.SysUserOnline;
@@ -43,7 +43,7 @@ public class SysUserOnlineController extends BaseController {
      */
     @SaCheckPermission("monitor:online:list")
     @GetMapping("/list")
-    public TableDataInfo<SysUserOnline> list(String ipaddr, String userName) {
+    public R<PageResult<SysUserOnline>> list(String ipaddr, String userName) {
         // 获取所有未过期的 token
         Collection<String> keys = RedisUtils.keys(CacheConstants.ONLINE_TOKEN_KEY + "*");
         List<UserOnlineDTO> userOnlineDTOList = new ArrayList<>();
@@ -72,7 +72,7 @@ public class SysUserOnlineController extends BaseController {
         Collections.reverse(userOnlineDTOList);
         userOnlineDTOList.removeAll(Collections.singleton(null));
         List<SysUserOnline> userOnlineList = BeanUtil.copyToList(userOnlineDTOList, SysUserOnline.class);
-        return TableDataInfo.build(userOnlineList);
+        return R.ok(PageResult.build(userOnlineList));
     }
 
     /**
@@ -96,7 +96,7 @@ public class SysUserOnlineController extends BaseController {
      * 获取当前用户登录在线设备
      */
     @GetMapping()
-    public TableDataInfo<SysUserOnline> getInfo() {
+    public R<PageResult<SysUserOnline>> getInfo() {
         // 获取指定账号 id 的 token 集合
         List<String> tokenIds = StpUtil.getTokenValueListByLoginId(StpUtil.getLoginIdAsString());
         List<UserOnlineDTO> userOnlineDTOList = tokenIds.stream()
@@ -107,7 +107,7 @@ public class SysUserOnlineController extends BaseController {
         Collections.reverse(userOnlineDTOList);
         userOnlineDTOList.removeAll(Collections.singleton(null));
         List<SysUserOnline> userOnlineList = BeanUtil.copyToList(userOnlineDTOList, SysUserOnline.class);
-        return TableDataInfo.build(userOnlineList);
+        return R.ok(PageResult.build(userOnlineList));
     }
 
     /**

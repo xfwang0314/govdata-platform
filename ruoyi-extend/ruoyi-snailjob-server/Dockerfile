@@ -3,7 +3,7 @@ FROM bellsoft/liberica-openjdk-rocky:17.0.16-cds
 #FROM bellsoft/liberica-openjdk-rocky:21.0.8-cds
 #FROM findepi/graalvm:java17-native
 
-LABEL maintainer="Lion Li"
+LABEL maintainer="GovData Platform Team"
 
 RUN mkdir -p /ruoyi/snailjob/logs
 

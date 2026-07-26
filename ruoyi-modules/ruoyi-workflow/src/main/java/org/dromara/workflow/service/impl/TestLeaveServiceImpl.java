@@ -1,7 +1,6 @@
 package org.dromara.workflow.service.impl;
 
 import cn.hutool.core.convert.Convert;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
@@ -10,19 +9,19 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dromara.common.core.domain.dto.StartProcessDTO;
-import org.dromara.common.core.domain.event.ProcessDeleteEvent;
-import org.dromara.common.core.domain.event.ProcessEvent;
-import org.dromara.common.core.domain.event.ProcessTaskEvent;
+import org.dromara.workflow.api.domain.StartProcessDTO;
+import org.dromara.workflow.api.event.ProcessDeleteEvent;
+import org.dromara.workflow.api.event.ProcessEvent;
+import org.dromara.workflow.api.event.ProcessTaskEvent;
 import org.dromara.common.core.enums.BusinessStatusEnum;
 import org.dromara.common.core.exception.ServiceException;
-import org.dromara.common.core.service.WorkflowService;
+import org.dromara.workflow.api.WorkflowService;
 import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.workflow.common.ConditionalOnEnable;
 import org.dromara.workflow.common.constant.FlowConstant;
 import org.dromara.workflow.domain.TestLeave;
@@ -36,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.time.temporal.ChronoUnit;
 
 /**
  * 请假Service业务层处理
@@ -77,10 +77,10 @@ public class TestLeaveServiceImpl implements ITestLeaveService {
      * 查询请假列表
      */
     @Override
-    public TableDataInfo<TestLeaveVo> queryPageList(TestLeaveBo bo, PageQuery pageQuery) {
+    public PageResult<TestLeaveVo> queryPageList(TestLeaveBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<TestLeave> lqw = buildQueryWrapper(bo);
         Page<TestLeaveVo> result = baseMapper.selectVoPage(pageQuery.build(), lqw);
-        return TableDataInfo.build(result);
+        return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     /**
@@ -106,7 +106,7 @@ public class TestLeaveServiceImpl implements ITestLeaveService {
      */
     @Override
     public TestLeaveVo insertByBo(TestLeaveBo bo) {
-        long day = DateUtil.betweenDay(bo.getStartDate(), bo.getEndDate(), true);
+        long day = ChronoUnit.DAYS.between(bo.getStartDate().toLocalDate(), bo.getEndDate().toLocalDate());
         // 截止日期也算一天
         bo.setLeaveDays((int) day + 1);
         bo.setApplyCode(System.currentTimeMillis() + StrUtil.EMPTY);
@@ -124,7 +124,7 @@ public class TestLeaveServiceImpl implements ITestLeaveService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public TestLeaveVo submitAndFlowStart(TestLeaveBo bo) {
-        long day = DateUtil.betweenDay(bo.getStartDate(), bo.getEndDate(), true);
+        long day = ChronoUnit.DAYS.between(bo.getStartDate().toLocalDate(), bo.getEndDate().toLocalDate());
         // 截止日期也算一天
         bo.setLeaveDays((int) day + 1);
         if (ObjectUtil.isNull(bo.getId())) {

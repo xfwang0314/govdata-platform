@@ -5,10 +5,12 @@ import org.dromara.common.translation.annotation.TranslationType;
 import org.dromara.common.translation.core.TranslationInterface;
 import org.dromara.common.translation.core.handler.TranslationBeanSerializerModifier;
 import org.dromara.common.translation.core.handler.TranslationHandler;
+import org.dromara.common.translation.core.handler.TranslationJsonFieldProcessor;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.context.annotation.Bean;
 
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +47,11 @@ public class TranslationConfig {
         objectMapper.setSerializerFactory(
             objectMapper.getSerializerFactory()
                 .withSerializerModifier(new TranslationBeanSerializerModifier()));
+    }
+
+    @Bean
+    public TranslationJsonFieldProcessor translationJsonFieldProcessor() {
+        return new TranslationJsonFieldProcessor(list);
     }
 
 }

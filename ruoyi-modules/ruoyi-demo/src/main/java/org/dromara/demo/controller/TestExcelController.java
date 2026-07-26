@@ -62,7 +62,7 @@ public class TestExcelController {
         map.put("title2", "标题2");
         map.put("title3", "标题3");
         map.put("title4", "标题4");
-        map.put("author", "Lion Li");
+        map.put("author", "GovData Platform Team");
         List<TestObj1> list1 = new ArrayList<>();
         list1.add(new TestObj1("list1测试1", "list1测试2", "list1测试3"));
         list1.add(new TestObj1("list1测试4", "list1测试5", "list1测试6"));

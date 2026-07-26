@@ -10,7 +10,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.util.Date;
+import java.time.LocalDateTime;
 
 
 /**
@@ -134,7 +134,7 @@ public class SysOperLogVo implements Serializable {
      * 操作时间
      */
     @ExcelProperty(value = "操作时间")
-    private Date operTime;
+    private LocalDateTime operTime;
 
     /**
      * 消耗时间

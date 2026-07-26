@@ -2,14 +2,14 @@ package org.dromara.workflow.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
-import org.dromara.common.core.domain.dto.StartProcessReturnDTO;
-import org.dromara.common.core.domain.dto.UserDTO;
+import org.dromara.workflow.api.domain.StartProcessReturnDTO;
+import org.dromara.system.api.domain.UserDTO;
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.idempotent.annotation.RepeatSubmit;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.warm.flow.core.entity.Node;
 import org.dromara.warm.flow.orm.entity.FlowNode;
@@ -69,8 +69,8 @@ public class FlwTaskController extends BaseController {
      * @param pageQuery  分页
      */
     @GetMapping("/pageByTaskWait")
-    public TableDataInfo<FlowTaskVo> pageByTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
-        return flwTaskService.pageByTaskWait(flowTaskBo, pageQuery);
+    public R<PageResult<FlowTaskVo>> pageByTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+        return R.ok(flwTaskService.pageByTaskWait(flowTaskBo, pageQuery));
     }
 
     /**
@@ -81,8 +81,8 @@ public class FlwTaskController extends BaseController {
      */
 
     @GetMapping("/pageByTaskFinish")
-    public TableDataInfo<FlowHisTaskVo> pageByTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
-        return flwTaskService.pageByTaskFinish(flowTaskBo, pageQuery);
+    public R<PageResult<FlowHisTaskVo>> pageByTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+        return R.ok(flwTaskService.pageByTaskFinish(flowTaskBo, pageQuery));
     }
 
     /**
@@ -92,8 +92,8 @@ public class FlwTaskController extends BaseController {
      * @param pageQuery  分页
      */
     @GetMapping("/pageByAllTaskWait")
-    public TableDataInfo<FlowTaskVo> pageByAllTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
-        return flwTaskService.pageByAllTaskWait(flowTaskBo, pageQuery);
+    public R<PageResult<FlowTaskVo>> pageByAllTaskWait(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+        return R.ok(flwTaskService.pageByAllTaskWait(flowTaskBo, pageQuery));
     }
 
     /**
@@ -103,8 +103,8 @@ public class FlwTaskController extends BaseController {
      * @param pageQuery  分页
      */
     @GetMapping("/pageByAllTaskFinish")
-    public TableDataInfo<FlowHisTaskVo> pageByAllTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
-        return flwTaskService.pageByAllTaskFinish(flowTaskBo, pageQuery);
+    public R<PageResult<FlowHisTaskVo>> pageByAllTaskFinish(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+        return R.ok(flwTaskService.pageByAllTaskFinish(flowTaskBo, pageQuery));
     }
 
     /**
@@ -114,8 +114,8 @@ public class FlwTaskController extends BaseController {
      * @param pageQuery  分页
      */
     @GetMapping("/pageByTaskCopy")
-    public TableDataInfo<FlowTaskVo> pageByTaskCopy(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
-        return flwTaskService.pageByTaskCopy(flowTaskBo, pageQuery);
+    public R<PageResult<FlowTaskVo>> pageByTaskCopy(FlowTaskBo flowTaskBo, PageQuery pageQuery) {
+        return R.ok(flwTaskService.pageByTaskCopy(flowTaskBo, pageQuery));
     }
 
     /**

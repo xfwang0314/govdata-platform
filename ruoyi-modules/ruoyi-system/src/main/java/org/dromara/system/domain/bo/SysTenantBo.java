@@ -1,16 +1,17 @@
 package org.dromara.system.domain.bo;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 import io.github.linpeilie.annotations.AutoMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.system.domain.SysTenant;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 /**
  * 租户业务对象 sys_tenant
@@ -19,9 +20,11 @@ import java.util.Date;
  */
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = SysTenant.class, reverseConvertGenerate = false)
-public class SysTenantBo extends BaseEntity {
+public class SysTenantBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * id
@@ -99,7 +102,7 @@ public class SysTenantBo extends BaseEntity {
     /**
      * 过期时间
      */
-    private Date expireTime;
+    private LocalDateTime expireTime;
 
     /**
      * 用户数量（-1不限制）

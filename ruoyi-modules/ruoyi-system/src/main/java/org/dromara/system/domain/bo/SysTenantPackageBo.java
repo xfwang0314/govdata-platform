@@ -1,15 +1,16 @@
 package org.dromara.system.domain.bo;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
 import org.dromara.system.domain.SysTenantPackage;
 import io.github.linpeilie.annotations.AutoMapper;
 import io.github.linpeilie.annotations.AutoMapping;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import jakarta.validation.constraints.*;
 
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 
 /**
  * 租户套餐业务对象 sys_tenant_package
@@ -18,9 +19,11 @@ import org.dromara.common.mybatis.core.domain.BaseEntity;
  */
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = SysTenantPackage.class, reverseConvertGenerate = false)
-public class SysTenantPackageBo extends BaseEntity {
+public class SysTenantPackageBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     /**
      * 租户套餐id

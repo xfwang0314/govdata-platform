@@ -1,7 +1,6 @@
 package org.dromara.common.core.exception;
 
 import cn.hutool.core.text.StrFormatter;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -16,7 +15,6 @@ import java.io.Serial;
 @Data
 @EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
-@AllArgsConstructor
 public final class ServiceException extends RuntimeException {
 
     @Serial
@@ -26,6 +24,11 @@ public final class ServiceException extends RuntimeException {
      * 错误码
      */
     private Integer code;
+
+    /**
+     * 稳定业务异常编码。
+     */
+    private String errorCode;
 
     /**
      * 错误提示
@@ -44,6 +47,16 @@ public final class ServiceException extends RuntimeException {
     public ServiceException(String message, Integer code) {
         this.message = message;
         this.code = code;
+    }
+
+    public ServiceException(ErrorCode errorCode) {
+        this(errorCode, errorCode.getMessage());
+    }
+
+    public ServiceException(ErrorCode errorCode, String message) {
+        this.message = message;
+        this.code = errorCode.getHttpStatus();
+        this.errorCode = errorCode.getCode();
     }
 
     public ServiceException(String message, Object... args) {

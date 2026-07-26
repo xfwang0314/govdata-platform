@@ -10,7 +10,7 @@ import org.dromara.common.idempotent.annotation.RepeatSubmit;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.system.domain.SysUserRole;
 import org.dromara.system.domain.bo.SysDeptBo;
@@ -46,8 +46,8 @@ public class SysRoleController extends BaseController {
      */
     @SaCheckPermission("system:role:list")
     @GetMapping("/list")
-    public TableDataInfo<SysRoleVo> list(SysRoleBo role, PageQuery pageQuery) {
-        return roleService.selectPageRoleList(role, pageQuery);
+    public R<PageResult<SysRoleVo>> list(SysRoleBo role, PageQuery pageQuery) {
+        return R.ok(roleService.selectPageRoleList(role, pageQuery));
     }
 
     /**
@@ -168,8 +168,8 @@ public class SysRoleController extends BaseController {
      */
     @SaCheckPermission("system:role:list")
     @GetMapping("/authUser/allocatedList")
-    public TableDataInfo<SysUserVo> allocatedList(SysUserBo user, PageQuery pageQuery) {
-        return userService.selectAllocatedList(user, pageQuery);
+    public R<PageResult<SysUserVo>> allocatedList(SysUserBo user, PageQuery pageQuery) {
+        return R.ok(userService.selectAllocatedList(user, pageQuery));
     }
 
     /**
@@ -177,8 +177,8 @@ public class SysRoleController extends BaseController {
      */
     @SaCheckPermission("system:role:list")
     @GetMapping("/authUser/unallocatedList")
-    public TableDataInfo<SysUserVo> unallocatedList(SysUserBo user, PageQuery pageQuery) {
-        return userService.selectUnallocatedList(user, pageQuery);
+    public R<PageResult<SysUserVo>> unallocatedList(SysUserBo user, PageQuery pageQuery) {
+        return R.ok(userService.selectUnallocatedList(user, pageQuery));
     }
 
     /**

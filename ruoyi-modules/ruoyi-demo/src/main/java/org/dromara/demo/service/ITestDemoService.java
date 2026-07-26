@@ -1,7 +1,7 @@
 package org.dromara.demo.service;
 
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.demo.domain.TestDemo;
 import org.dromara.demo.domain.bo.TestDemoBo;
 import org.dromara.demo.domain.vo.TestDemoVo;
@@ -27,12 +27,12 @@ public interface ITestDemoService {
     /**
      * 查询列表
      */
-    TableDataInfo<TestDemoVo> queryPageList(TestDemoBo bo, PageQuery pageQuery);
+    PageResult<TestDemoVo> queryPageList(TestDemoBo bo, PageQuery pageQuery);
 
     /**
      * 自定义分页查询
      */
-    TableDataInfo<TestDemoVo> customPageList(TestDemoBo bo, PageQuery pageQuery);
+    PageResult<TestDemoVo> customPageList(TestDemoBo bo, PageQuery pageQuery);
 
     /**
      * 查询列表

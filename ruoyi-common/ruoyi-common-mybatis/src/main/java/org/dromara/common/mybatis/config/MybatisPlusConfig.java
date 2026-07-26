@@ -16,12 +16,14 @@ import org.dromara.common.mybatis.handler.InjectionMetaObjectHandler;
 import org.dromara.common.mybatis.handler.MybatisExceptionHandler;
 import org.dromara.common.mybatis.handler.PlusPostInitTableInfoHandler;
 import org.dromara.common.mybatis.interceptor.PlusDataPermissionInterceptor;
+import org.dromara.common.mybatis.interceptor.SqlLogInterceptor;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Role;
+import org.springframework.context.annotation.Profile;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
@@ -34,6 +36,15 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @MapperScan("${mybatis-plus.mapperPackage}")
 @PropertySource(value = "classpath:common-mybatis.yml", factory = YmlPropertySourceFactory.class)
 public class MybatisPlusConfig {
+
+    /**
+     * 仅在本地和开发环境记录 SQL，生产环境不加载。
+     */
+    @Bean
+    @Profile({"local", "dev"})
+    public SqlLogInterceptor sqlLogInterceptor() {
+        return new SqlLogInterceptor();
+    }
 
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {

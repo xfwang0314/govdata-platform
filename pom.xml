@@ -8,9 +8,9 @@
     <artifactId>ruoyi-vue-plus</artifactId>
     <version>${revision}</version>
 
-    <name>RuoYi-Vue-Plus</name>
-    <url>https://gitee.com/dromara/RuoYi-Vue-Plus</url>
-    <description>Dromara RuoYi-Vue-Plus多租户管理系统</description>
+    <name>GovData Platform</name>
+    <url>https://github.com/xfwang0314/govdata-platform</url>
+    <description>政务数据中台后端服务</description>
 
     <properties>
         <revision>5.6.2</revision>
@@ -25,7 +25,6 @@
         <velocity.version>2.3</velocity.version>
         <satoken.version>1.45.0</satoken.version>
         <mybatis-plus.version>3.5.16</mybatis-plus.version>
-        <p6spy.version>3.9.1</p6spy.version>
         <hutool.version>5.8.43</hutool.version>
         <spring-boot-admin.version>3.5.8</spring-boot-admin.version>
         <redisson.version>3.52.0</redisson.version>
@@ -55,6 +54,7 @@
         <maven-war-plugin.version>3.4.0</maven-war-plugin.version>
         <maven-compiler-plugin.version>3.14.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.5.3</maven-surefire-plugin.version>
+        <maven-enforcer-plugin.version>3.5.0</maven-enforcer-plugin.version>
         <flatten-maven-plugin.version>1.3.0</flatten-maven-plugin.version>
         <!-- 打包默认跳过测试 -->
         <skipTests>true</skipTests>
@@ -125,6 +125,13 @@
                 <version>${revision}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- API 契约模块 -->
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>ruoyi-api</artifactId>
+                <version>${revision}</version>
             </dependency>
 
             <dependency>
@@ -211,13 +218,6 @@
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-annotation</artifactId>
                 <version>${mybatis-plus.version}</version>
-            </dependency>
-
-            <!-- sql性能分析插件 -->
-            <dependency>
-                <groupId>p6spy</groupId>
-                <artifactId>p6spy</artifactId>
-                <version>${p6spy.version}</version>
             </dependency>
 
             <!--  AWS SDK for Java 2.x  -->
@@ -357,6 +357,23 @@
                 <version>${revision}</version>
             </dependency>
 
+            <!-- 政务数据中台业务模块 -->
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>govdata-metadata</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>govdata-exchange</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>govdata-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -365,11 +382,41 @@
         <module>ruoyi-common</module>
         <module>ruoyi-extend</module>
         <module>ruoyi-modules</module>
+        <module>ruoyi-api</module>
+        <module>govdata-modules</module>
+        <module>govdata-api</module>
     </modules>
     <packaging>pom</packaging>
 
     <build>
         <plugins>
+            <!-- 统一团队 Maven/JDK 版本，避免本地与 CI 构建结果漂移 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven-enforcer-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-build-toolchain</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireMavenVersion>
+                                    <version>[3.9.9,3.10.0)</version>
+                                    <message>请使用项目 Maven Wrapper（Maven 3.9.9）执行构建。</message>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <version>[17,18)</version>
+                                    <message>项目仅支持 JDK 17，请检查 JAVA_HOME。</message>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

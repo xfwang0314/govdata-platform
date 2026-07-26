@@ -3,6 +3,7 @@ package org.dromara.common.web.config;
 import jakarta.servlet.DispatcherType;
 import org.dromara.common.web.config.properties.XssProperties;
 import org.dromara.common.web.filter.RepeatableFilter;
+import org.dromara.common.web.filter.TraceIdFilter;
 import org.dromara.common.web.filter.XssFilter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,6 +20,17 @@ import org.springframework.context.annotation.Bean;
 @AutoConfiguration
 @EnableConfigurationProperties(XssProperties.class)
 public class FilterConfig {
+
+    @Bean
+    @FilterRegistration(
+        name = "traceIdFilter",
+        urlPatterns = "/*",
+        order = FilterRegistrationBean.HIGHEST_PRECEDENCE,
+        dispatcherTypes = DispatcherType.REQUEST
+    )
+    public TraceIdFilter traceIdFilter() {
+        return new TraceIdFilter();
+    }
 
     @Bean
     @ConditionalOnProperty(value = "xss.enabled", havingValue = "true")

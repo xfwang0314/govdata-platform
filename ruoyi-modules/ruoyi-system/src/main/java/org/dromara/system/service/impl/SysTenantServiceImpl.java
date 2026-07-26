@@ -15,13 +15,13 @@ import org.dromara.common.core.constant.Constants;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.core.constant.TenantConstants;
 import org.dromara.common.core.exception.ServiceException;
-import org.dromara.common.core.service.WorkflowService;
+import org.dromara.workflow.api.WorkflowService;
 import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.SpringUtils;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
-import org.dromara.common.mybatis.core.page.TableDataInfo;
+import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.redis.utils.CacheUtils;
 import org.dromara.common.tenant.core.TenantEntity;
 import org.dromara.common.tenant.helper.TenantHelper;
@@ -36,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.time.LocalDateTime;
 
 /**
  * 租户Service业务层处理
@@ -79,10 +80,10 @@ public class SysTenantServiceImpl implements ISysTenantService {
      * 查询租户列表
      */
     @Override
-    public TableDataInfo<SysTenantVo> queryPageList(SysTenantBo bo, PageQuery pageQuery) {
+    public PageResult<SysTenantVo> queryPageList(SysTenantBo bo, PageQuery pageQuery) {
         LambdaQueryWrapper<SysTenant> lqw = buildQueryWrapper(bo);
         Page<SysTenantVo> result = baseMapper.selectVoPage(pageQuery.build(), lqw);
-        return TableDataInfo.build(result);
+        return PageResult.build(result.getRecords(), result.getTotal());
     }
 
     /**
@@ -365,7 +366,7 @@ public class SysTenantServiceImpl implements ISysTenantService {
             return true;
         }
         // 如果当前时间在过期时间之前则通过
-        return new Date().before(tenant.getExpireTime());
+        return LocalDateTime.now().isBefore(tenant.getExpireTime());
     }
 
     /**

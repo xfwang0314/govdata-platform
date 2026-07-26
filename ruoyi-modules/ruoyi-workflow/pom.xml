@@ -18,9 +18,15 @@
 
     <dependencies>
 
+        <!-- API 契约模块 -->
         <dependency>
             <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-common-sse</artifactId>
+            <artifactId>ruoyi-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>ruoyi-common-push</artifactId>
         </dependency>
 
         <dependency>

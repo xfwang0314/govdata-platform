@@ -1,8 +1,11 @@
 package org.dromara.common.core.domain;
 
 import org.dromara.common.core.constant.HttpStatus;
+import org.dromara.common.core.exception.ErrorCode;
+import org.dromara.common.core.exception.GlobalErrorCode;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.slf4j.MDC;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -34,6 +37,16 @@ public class R<T> implements Serializable {
     private String msg;
 
     private T data;
+
+    /**
+     * 稳定异常编码；成功时为 0。
+     */
+    private String errorCode;
+
+    /**
+     * 请求链路标识，可用于关联服务端日志。
+     */
+    private String traceId;
 
     public static <T> R<T> ok() {
         return restResult(null, SUCCESS, "操作成功");
@@ -68,7 +81,19 @@ public class R<T> implements Serializable {
     }
 
     public static <T> R<T> fail(int code, String msg) {
-        return restResult(null, code, msg);
+        return restResult(null, code, msg, GlobalErrorCode.fromHttpStatus(code).getCode());
+    }
+
+    public static <T> R<T> fail(int code, String errorCode, String msg) {
+        return restResult(null, code, msg, errorCode);
+    }
+
+    public static <T> R<T> fail(ErrorCode errorCode) {
+        return fail(errorCode, errorCode.getMessage());
+    }
+
+    public static <T> R<T> fail(ErrorCode errorCode, String msg) {
+        return restResult(null, errorCode.getHttpStatus(), msg, errorCode.getCode());
     }
 
     /**
@@ -93,10 +118,18 @@ public class R<T> implements Serializable {
     }
 
     private static <T> R<T> restResult(T data, int code, String msg) {
+        String errorCode = code == SUCCESS
+            ? GlobalErrorCode.SUCCESS.getCode() : GlobalErrorCode.BUSINESS_ERROR.getCode();
+        return restResult(data, code, msg, errorCode);
+    }
+
+    private static <T> R<T> restResult(T data, int code, String msg, String errorCode) {
         R<T> r = new R<>();
         r.setCode(code);
         r.setData(data);
         r.setMsg(msg);
+        r.setErrorCode(errorCode);
+        r.setTraceId(MDC.get("traceId"));
         return r;
     }
 

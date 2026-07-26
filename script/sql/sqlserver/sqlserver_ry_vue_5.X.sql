@@ -1656,7 +1656,7 @@ INSERT sys_menu VALUES (2, N'系统监控', 0, 3, N'monitor', NULL, N'', 1, 0, N
 GO
 INSERT sys_menu VALUES (3, N'系统工具', 0, 4, N'tool', NULL, N'', 1, 0, N'M', N'0', N'0', N'', N'tool', 103, 1, getdate(), NULL, NULL, N'系统工具目录')
 GO
-INSERT sys_menu VALUES (4, N'PLUS官网', 0, 5, N'https://gitee.com/dromara/RuoYi-Vue-Plus', null, N'', 0, 0, N'M', N'0', N'0', N'', N'guide', 103, 1, getdate(), null, null, N'RuoYi-Vue-Plus官网地址');
+INSERT sys_menu VALUES (4, N'项目仓库', 0, 5, N'https://github.com/xfwang0314/govdata-platform', null, N'', 0, 0, N'M', N'0', N'0', N'', N'guide', 103, 1, getdate(), null, null, N'政务数据中台项目仓库地址');
 GO
 INSERT sys_menu VALUES (5, N'测试菜单', 0, 5, N'demo', NULL, N'', 1, 0, N'M', N'0', N'0', NULL, N'star', 103, 1, getdate(), NULL, NULL, N'');
 GO
@@ -1998,9 +1998,9 @@ EXEC sys.sp_addextendedproperty
     'TABLE', N'sys_notice'
 GO
 
-INSERT sys_notice VALUES (1, N'000000', N'温馨提醒：2018-07-01 若依新版本发布啦', N'2', N'新版本内容', N'0', 103, 1, getdate(), NULL, NULL, N'管理员')
+INSERT sys_notice VALUES (1, N'000000', N'欢迎使用政务数据中台', N'2', N'平台初始化完成，请及时检查基础配置和默认账号。', N'0', 103, 1, getdate(), NULL, NULL, N'管理员')
 GO
-INSERT sys_notice VALUES (2, N'000000', N'维护通知：2018-07-01 若依系统凌晨维护', N'1', N'维护内容', N'0', 103, 1, getdate(), NULL, NULL, N'管理员')
+INSERT sys_notice VALUES (2, N'000000', N'政务数据中台维护通知', N'1', N'系统维护安排请以实际发布通知为准。', N'0', 103, 1, getdate(), NULL, NULL, N'管理员')
 GO
 
 CREATE TABLE sys_oper_log

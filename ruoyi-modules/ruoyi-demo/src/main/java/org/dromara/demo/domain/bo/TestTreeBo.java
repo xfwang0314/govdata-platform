@@ -1,14 +1,17 @@
 package org.dromara.demo.domain.bo;
 
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.dromara.common.core.validate.AddGroup;
 import org.dromara.common.core.validate.EditGroup;
-import org.dromara.common.mybatis.core.domain.BaseEntity;
 import org.dromara.demo.domain.TestTree;
 import io.github.linpeilie.annotations.AutoMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 /**
  * 测试树表业务对象 test_tree
@@ -18,9 +21,13 @@ import lombok.EqualsAndHashCode;
  */
 
 @Data
-@EqualsAndHashCode(callSuper = true)
 @AutoMapper(target = TestTree.class, reverseConvertGenerate = false)
-public class TestTreeBo extends BaseEntity {
+public class TestTreeBo implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
+    private Map<String, Object> params = new HashMap<>();
 
     /**
      * 主键
