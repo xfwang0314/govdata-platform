@@ -5,16 +5,32 @@
 - 所有者：GovData Platform Team
 - 最后更新：2026-08-01
 
+## 分支命名规范
+
 - `main` 保持可构建和可部署，不直接开发。
-- 使用短期 `feature/*`、`refactor/*`、`fix/*`、`docs/*` 分支，不维护长期 develop。
+- 使用短期功能分支进行开发，禁止维护长期的 `develop` 分支。
+- **分支前缀约定**（与 Commit Type 对应）：
+  - `feature/xxx` 或 `feat/xxx`：开发新业务功能（如 `feature/datasource`）。
+  - `fix/xxx`：修复代码 Bug（如 `fix/login-null-pointer`）。
+  - `refactor/xxx`：代码重构，不改变已有逻辑功能（如 `refactor/auth-service`）。
+  - `chore/xxx`：杂项、基础设施调整、依赖更新、脚手架清理等非业务代码的改动（如 `chore/framework-init`）。
+  - `docs/xxx`：纯文档编写与修改。
 
 ## Commit Message 规范
 
-提交必须符合 Conventional Commits 标准。格式如下：
+提交必须符合 Conventional Commits（语义化提交）标准。格式如下：
 
 `<type>(<scope>): <subject>`
 
-- **type** (必需): 变更类型，可选值 `feat` (新功能), `refactor` (重构), `fix` (修复), `docs` (文档), `test` (测试), `build` (构建), `chore` (日常事务)。
+- **type** (必需): 变更类型，请严格区分适用场景：
+  - `feat`: ✨ 新增功能（如添加新接口、新页面）。
+  - `fix`: 🐛 修复 Bug。
+  - `chore`: 🔧 杂项事务（清理冗余代码、更新配置文件、调整构建脚本等，完全不影响业务功能）。
+  - `refactor`: ♻️ 重构（既不是新增功能，也不是修改 bug 的代码变动，如重命名变量、提取公用方法）。
+  - `docs`: 📝 纯文档修改（如修改 README、补充 ADR）。
+  - `test`: ✅ 增加缺失的测试代码。
+  - `build`: 📦 影响构建系统或外部依赖的更改（如修改 pom.xml 或 package.json）。
+  - `perf`: ⚡️ 提升性能的代码修改。
 - **scope** (必需): 影响范围，按技术或模块划分。目前约定的 scope 有：`scheduler` (调度), `db` (数据库/SQL), `docs` (文档/ADR), `infra` (基础配置), `platform` (platform-* 模块), `govdata` (govdata-* 模块)。
 - **subject** (必需): 简短的中文描述，总结变更内容。
 
