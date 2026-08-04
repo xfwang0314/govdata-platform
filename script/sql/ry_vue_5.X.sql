@@ -266,7 +266,14 @@ insert into sys_menu values('2', '系统监控', '0', '3', 'monitor',          n
 insert into sys_menu values('3', '系统工具', '0', '4', 'tool',             null, '', 1, 0, 'M', '0', '0', '', 'tool',     103, 1, sysdate(), null, null, '系统工具目录');
 insert into sys_menu values('4', '项目仓库', '0', '5', 'https://github.com/xfwang0314/govdata-platform', null, '', 0, 0, 'M', '0', '0', '', 'guide',    103, 1, sysdate(), null, null, '政务数据中台项目仓库地址');
 insert into sys_menu values('5', '测试菜单', '0', '5', 'demo',             null, '', 1, 0, 'M', '0', '0', '', 'star',     103, 1, sysdate(), null, null, '测试菜单');
+insert into sys_menu values('19000', '平台治理', '0', '6', 'platform', null, '', 1, 0, 'M', '0', '0', '', 'lock', 103, 1, sysdate(), null, null, '平台通用治理目录');
+insert into sys_menu values('20000', '数据治理', '0', '7', 'govdata', null, '', 1, 0, 'M', '0', '0', '', 'database', 103, 1, sysdate(), null, null, '政务数据中台业务目录');
 -- 二级菜单
+insert into sys_menu values('19100', '授权资源', '19000', '1', 'resource', 'platform/auth/resource/index', '', 1, 0, 'C', '0', '0', 'platform:auth:resource:query', 'tree-table', 103, 1, sysdate(), null, null, '统一授权资源管理');
+insert into sys_menu values('19200', 'ABAC策略', '19000', '2', 'policy', 'platform/auth/policy/index', '', 1, 0, 'C', '0', '0', 'platform:auth:policy:query', 'shield', 103, 1, sysdate(), null, null, 'ABAC策略管理');
+insert into sys_menu values('19300', '共享授权', '19000', '3', 'grant', 'platform/auth/grant/index', '', 1, 0, 'C', '0', '0', 'platform:auth:grant:query', 'peoples', 103, 1, sysdate(), null, null, '运行时Grant管理');
+insert into sys_menu values('19400', '授权验证', '19000', '4', 'decision', 'platform/auth/decision/index', '', 1, 0, 'C', '0', '0', 'platform:auth:decision:evaluate', 'eye-open', 103, 1, sysdate(), null, null, '授权决策联调页面');
+insert into sys_menu values('20100', '数据源管理', '20000', '1', 'datasource', 'govdata/datasource/index', '', 1, 0, 'C', '0', '0', 'govdata:datasource:list', 'connection', 103, 1, sysdate(), null, null, '数据源管理菜单');
 insert into sys_menu values('100',  '用户管理',     '1',   '1', 'user',             'system/user/index',            '', 1, 0, 'C', '0', '0', 'system:user:list',            'user',          103, 1, sysdate(), null, null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理',     '1',   '2', 'role',             'system/role/index',            '', 1, 0, 'C', '0', '0', 'system:role:list',            'peoples',       103, 1, sysdate(), null, null, '角色管理菜单');
 insert into sys_menu values('102',  '菜单管理',     '1',   '3', 'menu',             'system/menu/index',            '', 1, 0, 'C', '0', '0', 'system:menu:list',            'tree-table',    103, 1, sysdate(), null, null, '菜单管理菜单');
@@ -278,11 +285,21 @@ insert into sys_menu values('107',  '通知公告',     '1',   '8', 'notice',   
 insert into sys_menu values('108',  '日志管理',     '1',   '9', 'log',              '',                             '', 1, 0, 'M', '0', '0', '',                            'log',           103, 1, sysdate(), null, null, '日志管理菜单');
 insert into sys_menu values('109',  '在线用户',     '2',   '1', 'online',           'monitor/online/index',         '', 1, 0, 'C', '0', '0', 'monitor:online:list',         'online',        103, 1, sysdate(), null, null, '在线用户菜单');
 insert into sys_menu values('113',  '缓存监控',     '2',   '5', 'cache',            'monitor/cache/index',          '', 1, 0, 'C', '0', '0', 'monitor:cache:list',          'redis',         103, 1, sysdate(), null, null, '缓存监控菜单');
-insert into sys_menu values('115',  '代码生成',     '3',   '2', 'gen',              'tool/gen/index',               '', 1, 0, 'C', '0', '0', 'tool:gen:list',               'code',          103, 1, sysdate(), null, null, '代码生成菜单');
 insert into sys_menu values('121',  '租户管理',     '6',   '1', 'tenant',           'system/tenant/index',          '', 1, 0, 'C', '0', '0', 'system:tenant:list',          'list',          103, 1, sysdate(), null, null, '租户管理菜单');
 insert into sys_menu values('122',  '租户套餐管理',  '6',   '2', 'tenantPackage',    'system/tenantPackage/index',   '', 1, 0, 'C', '0', '0', 'system:tenantPackage:list',   'form',          103, 1, sysdate(), null, null, '租户套餐管理菜单');
 insert into sys_menu values('123',  '客户端管理',   '1',   '11', 'client',           'system/client/index',          '', 1, 0, 'C', '0', '0', 'system:client:list',          'international', 103, 1, sysdate(), null, null, '客户端管理菜单');
-insert into sys_menu values('116', '修改生成配置',  '3',   '2', 'gen-edit/index/:tableId', 'tool/gen/editTable', '', 1, 1, 'C', '1', '0', 'tool:gen:edit',           '#',               103, 1, sysdate(), null, null, '/tool/gen');
+insert into sys_menu values('19101', '资源新增', '19100', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:resource:add', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19201', '策略新增', '19200', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:add', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19202', '策略发布', '19200', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:publish', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19301', '授权新增', '19300', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:add', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19302', '授权激活', '19300', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:activate', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19303', '授权撤销', '19300', '3', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:revoke', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('20101', '数据源查询', '20100', '1', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:query', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('20102', '数据源新增', '20100', '2', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:add', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('20103', '数据源修改', '20100', '3', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:edit', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('20104', '数据源删除', '20100', '4', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:remove', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('20105', '连接测试', '20100', '5', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:test', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('20106', '测试记录', '20100', '6', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:test:list', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('130', '分配用户',     '1',   '2', 'role-auth/user/:roleId', 'system/role/authUser', '', 1, 1, 'C', '1', '0', 'system:role:edit',      '#',               103, 1, sysdate(), null, null, '/system/role');
 insert into sys_menu values('131', '分配角色',     '1',   '1', 'user-auth/role/:userId', 'system/user/authRole', '', 1, 1, 'C', '1', '0', 'system:user:edit',      '#',               103, 1, sysdate(), null, null, '/system/user');
 insert into sys_menu values('132', '字典数据',     '1',   '6', 'dict-data/index/:dictId', 'system/dict/data', '', 1, 1, 'C', '1', '0', 'system:dict:list',         '#',               103, 1, sysdate(), null, null, '/system/dict');
@@ -292,8 +309,6 @@ insert into sys_menu values('133', '文件配置管理',  '1',   '10', 'oss-conf
 insert into sys_menu values('117',  'Admin监控',   '2',   '5',  'Admin',            'monitor/admin/index',         '', 1, 0, 'C', '0', '0', 'monitor:admin:list',           'dashboard',     103, 1, sysdate(), null, null, 'Admin监控菜单');
 -- oss菜单
 insert into sys_menu values('118',  '文件管理',     '1',   '10', 'oss',              'system/oss/index',            '', 1, 0, 'C', '0', '0', 'system:oss:list',              'upload',        103, 1, sysdate(), null, null, '文件管理菜单');
--- snail-job server控制台
-insert into sys_menu values('120',  '任务调度中心',  '2',   '6',  'snailjob',     'monitor/snailjob/index',    '', 1, 0, 'C', '0', '0', 'monitor:snailjob:list',          'job',           103, 1, sysdate(), null, null, 'SnailJob控制台菜单');
 
 -- 三级菜单
 insert into sys_menu values('500',  '操作日志', '108', '1', 'operlog',    'monitor/operlog/index',    '', 1, 0, 'C', '0', '0', 'monitor:operlog:list',    'form',          103, 1, sysdate(), null, null, '操作日志菜单');
@@ -358,13 +373,6 @@ insert into sys_menu values('1050', '账户解锁', '501', '4', '#', '', '', 1, 
 insert into sys_menu values('1046', '在线查询', '109', '1', '#', '', '', 1, 0, 'F', '0', '0', 'monitor:online:query',       '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('1047', '批量强退', '109', '2', '#', '', '', 1, 0, 'F', '0', '0', 'monitor:online:batchLogout', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('1048', '单条强退', '109', '3', '#', '', '', 1, 0, 'F', '0', '0', 'monitor:online:forceLogout', '#', 103, 1, sysdate(), null, null, '');
--- 代码生成按钮
-insert into sys_menu values('1055', '生成查询', '115', '1', '#', '', '', 1, 0, 'F', '0', '0', 'tool:gen:query',             '#', 103, 1, sysdate(), null, null, '');
-insert into sys_menu values('1056', '生成修改', '115', '2', '#', '', '', 1, 0, 'F', '0', '0', 'tool:gen:edit',              '#', 103, 1, sysdate(), null, null, '');
-insert into sys_menu values('1057', '生成删除', '115', '3', '#', '', '', 1, 0, 'F', '0', '0', 'tool:gen:remove',            '#', 103, 1, sysdate(), null, null, '');
-insert into sys_menu values('1058', '导入代码', '115', '2', '#', '', '', 1, 0, 'F', '0', '0', 'tool:gen:import',            '#', 103, 1, sysdate(), null, null, '');
-insert into sys_menu values('1059', '预览代码', '115', '4', '#', '', '', 1, 0, 'F', '0', '0', 'tool:gen:preview',           '#', 103, 1, sysdate(), null, null, '');
-insert into sys_menu values('1060', '生成代码', '115', '5', '#', '', '', 1, 0, 'F', '0', '0', 'tool:gen:code',              '#', 103, 1, sysdate(), null, null, '');
 -- oss相关按钮
 insert into sys_menu values('1600', '文件查询', '118', '1', '#', '', '', 1, 0, 'F', '0', '0', 'system:oss:query',        '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('1601', '文件上传', '118', '2', '#', '', '', 1, 0, 'F', '0', '0', 'system:oss:upload',       '#', 103, 1, sysdate(), null, null, '');
@@ -770,66 +778,6 @@ create table sys_notice (
 insert into sys_notice values('1', '000000', '温馨提醒：2018-07-01 新版本发布啦', '2', '新版本内容', '0', 103, 1, sysdate(), null, null, '管理员');
 insert into sys_notice values('2', '000000', '维护通知：2018-07-01 系统凌晨维护', '1', '维护内容',   '0', 103, 1, sysdate(), null, null, '管理员');
 
-
--- ----------------------------
--- 18、代码生成业务表
--- ----------------------------
-create table gen_table (
-    table_id          bigint(20)      not null                   comment '编号',
-    data_name         varchar(200)    default ''                 comment '数据源名称',
-    table_name        varchar(200)    default ''                 comment '表名称',
-    table_comment     varchar(500)    default ''                 comment '表描述',
-    sub_table_name    varchar(64)     default null               comment '关联子表的表名',
-    sub_table_fk_name varchar(64)     default null               comment '子表关联的外键名',
-    class_name        varchar(100)    default ''                 comment '实体类名称',
-    tpl_category      varchar(200)    default 'crud'             comment '使用的模板（crud单表操作 tree树表操作）',
-    package_name      varchar(100)                               comment '生成包路径',
-    module_name       varchar(30)                                comment '生成模块名',
-    business_name     varchar(30)                                comment '生成业务名',
-    function_name     varchar(50)                                comment '生成功能名',
-    function_author   varchar(50)                                comment '生成功能作者',
-    gen_type          char(1)         default '0'                comment '生成代码方式（0zip压缩包 1自定义路径）',
-    gen_path          varchar(200)    default '/'                comment '生成路径（不填默认项目路径）',
-    options           varchar(1000)                              comment '其它生成选项',
-    create_dept       bigint(20)      default null               comment '创建部门',
-    create_by         bigint(20)      default null               comment '创建者',
-    create_time       datetime                                   comment '创建时间',
-    update_by         bigint(20)      default null               comment '更新者',
-    update_time       datetime                                   comment '更新时间',
-    remark            varchar(500)    default null               comment '备注',
-    primary key (table_id)
-) engine=innodb comment = '代码生成业务表';
-
-
--- ----------------------------
--- 19、代码生成业务表字段
--- ----------------------------
-create table gen_table_column (
-    column_id         bigint(20)      not null                   comment '编号',
-    table_id          bigint(20)                                 comment '归属表编号',
-    column_name       varchar(200)                               comment '列名称',
-    column_comment    varchar(500)                               comment '列描述',
-    column_type       varchar(100)                               comment '列类型',
-    java_type         varchar(500)                               comment 'JAVA类型',
-    java_field        varchar(200)                               comment 'JAVA字段名',
-    is_pk             char(1)                                    comment '是否主键（1是）',
-    is_increment      char(1)                                    comment '是否自增（1是）',
-    is_required       char(1)                                    comment '是否必填（1是）',
-    is_insert         char(1)                                    comment '是否为插入字段（1是）',
-    is_edit           char(1)                                    comment '是否编辑字段（1是）',
-    is_list           char(1)                                    comment '是否列表字段（1是）',
-    is_query          char(1)                                    comment '是否查询字段（1是）',
-    query_type        varchar(200)    default 'EQ'               comment '查询方式（等于、不等于、大于、小于、范围）',
-    html_type         varchar(200)                               comment '显示类型（文本框、文本域、下拉框、复选框、单选框、日期控件）',
-    dict_type         varchar(200)    default ''                 comment '字典类型',
-    sort              int                                        comment '排序',
-    create_dept       bigint(20)      default null               comment '创建部门',
-    create_by         bigint(20)      default null               comment '创建者',
-    create_time       datetime                                   comment '创建时间',
-    update_by         bigint(20)      default null               comment '更新者',
-    update_time       datetime                                   comment '更新时间',
-    primary key (column_id)
-) engine=innodb comment = '代码生成业务表字段';
 
 -- ----------------------------
 -- OSS对象存储表
