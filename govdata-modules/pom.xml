@@ -16,15 +16,8 @@
         govdata-modules 政务数据中台业务模块
     </description>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.dromara</groupId>
-            <artifactId>govdata-api</artifactId>
-        </dependency>
-    </dependencies>
-
     <modules>
-        <module>govdata-metadata</module>
-        <module>govdata-exchange</module>
+        <module>govdata-datasource</module>
+        <module>govdata-query</module>
     </modules>
 </project>

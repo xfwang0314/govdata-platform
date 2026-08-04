@@ -76,17 +76,6 @@
             <artifactId>ruoyi-system</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-job</artifactId>
-        </dependency>
-
-        <!-- 代码生成-->
-        <dependency>
-            <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-generator</artifactId>
-        </dependency>
-
         <!--  demo模块  -->
         <dependency>
             <groupId>org.dromara</groupId>
@@ -99,14 +88,20 @@
             <artifactId>ruoyi-workflow</artifactId>
         </dependency>
 
+        <!-- 平台通用动态授权模块 -->
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>platform-auth</artifactId>
+        </dependency>
+
         <!-- 政务数据中台业务模块 -->
         <dependency>
             <groupId>org.dromara</groupId>
-            <artifactId>govdata-metadata</artifactId>
+            <artifactId>govdata-datasource</artifactId>
         </dependency>
         <dependency>
             <groupId>org.dromara</groupId>
-            <artifactId>govdata-exchange</artifactId>
+            <artifactId>govdata-query</artifactId>
         </dependency>
 
         <dependency>

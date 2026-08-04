@@ -18,8 +18,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.dromara</groupId>
-            <artifactId>ruoyi-api</artifactId>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 

@@ -140,11 +140,11 @@ mybatis-plus:
   # 自定义配置 是否全局开启逻辑删除 关闭后 所有逻辑删除功能将失效
   enableLogicDelete: true
   # 多包名使用 例如 org.dromara.**.mapper,org.xxx.**.mapper
-  mapperPackage: org.dromara.**.mapper
+  mapperPackage: org.dromara.**.mapper,com.xfwang.**.mapper
   # 对应的 XML 文件位置
   mapperLocations: classpath*:mapper/**/*Mapper.xml
   # 实体扫描，多个package用逗号或者分号分隔
-  typeAliasesPackage: org.dromara.**.domain
+  typeAliasesPackage: org.dromara.**.domain,com.xfwang.**.domain
   global-config:
     dbConfig:
       # 主键类型
@@ -202,10 +202,12 @@ springdoc:
       packages-to-scan: org.dromara.web
     - group: 3.系统模块
       packages-to-scan: org.dromara.system
-    - group: 4.代码生成模块
-      packages-to-scan: org.dromara.generator
-    - group: 5.工作流模块
+    - group: 4.工作流模块
       packages-to-scan: org.dromara.workflow
+    - group: 5.平台授权模块
+      packages-to-scan: com.xfwang.platform.auth.controller
+    - group: 6.数据源模块
+      packages-to-scan: com.xfwang.govdata.datasource.controller
 
 # 防止XSS攻击
 xss:

@@ -90,7 +90,6 @@ class PlatformContractIntegrationTest {
             tenant.when(TenantHelper::getTenantId).thenReturn("000001");
             assertThat(((StringValue) handler.getTenantId()).getValue()).isEqualTo("000001");
             assertTrue(handler.ignoreTable("sys_config"));
-            assertTrue(handler.ignoreTable("gen_table"));
             assertFalse(handler.ignoreTable("gov_metadata"));
         }
     }
@@ -107,6 +106,11 @@ class PlatformContractIntegrationTest {
         assertFalse(InterceptorIgnoreHelper.willIgnoreDataPermission("contract.test"));
         assertThat(DataScopeType.CUSTOM.getSqlTemplate()).contains("#roleId");
         assertThat(DataScopeType.CUSTOM.getSqlTemplate()).doesNotContain("#user.roleId");
+    }
+
+    @Test
+    void swaggerUiShouldBePresentForInteractiveApiVerification() throws ClassNotFoundException {
+        assertThat(Class.forName("org.springdoc.webmvc.ui.SwaggerWelcomeWebMvc")).isNotNull();
     }
 
     @RestController

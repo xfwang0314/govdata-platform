@@ -11,8 +11,6 @@
 
     <modules>
         <module>ruoyi-demo</module>
-        <module>ruoyi-generator</module>
-        <module>ruoyi-job</module>
         <module>ruoyi-system</module>
         <module>ruoyi-workflow</module>
     </modules>

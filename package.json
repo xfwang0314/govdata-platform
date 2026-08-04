@@ -1,0 +1,29 @@
+{
+  "name": "govdata-platform",
+  "version": "1.0.0",
+  "description": "政务数据中台（政务数据治理服务平台，英文标识 `govdata-platform`）基于 RuoYi-Vue-Plus 5.6.2 构建，面向政务数据汇聚、治理、共享和开放，负责元数据核心模型、JDBC/OpenMetadata 适配、数据标准、数据质量及 API 服务等模块的设计与实现。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xfwang0314/govdata-platform.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/xfwang0314/govdata-platform/issues"
+  },
+  "homepage": "https://github.com/xfwang0314/govdata-platform#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "husky": "^9.1.7"
+  }
+}
