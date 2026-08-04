@@ -31,7 +31,7 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>forbid-ruoyi-api-to-govdata-api</id>
+                        <id>forbid-ruoyi-api-upward-dependencies</id>
                         <phase>validate</phase>
                         <goals>
                             <goal>enforce</goal>
@@ -40,10 +40,11 @@
                             <rules>
                                 <bannedDependencies>
                                     <excludes>
-                                        <exclude>org.dromara:govdata-api</exclude>
+                                        <exclude>org.dromara:platform-*</exclude>
+                                        <exclude>org.dromara:govdata-*</exclude>
                                     </excludes>
                                     <searchTransitive>true</searchTransitive>
-                                    <message>ruoyi-api 是底层框架契约，禁止依赖 govdata-api。</message>
+                                    <message>ruoyi-api 是底层框架契约，禁止反向依赖 platform 或 govdata 模块。</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
