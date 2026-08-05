@@ -58,7 +58,7 @@ ruoyi-*        ← platform-* ← govdata-*
 ## 跨模块 seam
 
 只有两个以上调用者或真实可替换 Adapter 需要共同使用的稳定能力才提取契约。契约参数应使用
-Command、Query、View 和稳定 ID；不得暴露持久化 Entity、Page、Wrapper、HttpServletRequest。
+Command、Query、Result 和稳定 ID；不得暴露持久化 Entity、MyBatis Page、Wrapper、HttpServletRequest。
 
 ## 验证
 
@@ -66,4 +66,3 @@ Command、Query、View 和稳定 ID；不得暴露持久化 Entity、Page、Wrap
 - ArchUnit 检查 Java 包依赖以及 Domain 对框架的隔离。
 - 每个子模块支持独立 `compile/test`。
 - 目标结构迁移前，当前代码与本文的差异应列入实施计划而不是隐藏。
-

@@ -63,9 +63,9 @@ govdata-platform
 
 MySQL 默认使用 `script/sql` 下的脚本。全新环境：
 
-1. 执行 `ry_vue_5.X.sql` 初始化基础表和系统数据。
-2. 执行 `ry_auth.sql`、`ry_datasource.sql` 初始化授权与数据源表；按需执行 `ry_ontology.sql`。
-3. 使用工作流功能时执行 `ry_workflow.sql`。
+1. 阅读 `script/sql/baseline/manifest.md`，确认目标是可丢弃的空库。
+2. 按清单顺序执行 `script/sql/baseline/` 中的基线脚本。
+3. 已部署环境只执行 `script/sql/upgrade/` 中经过评审的前向升级脚本，不重复执行 Baseline。
 
 已有环境不要重复执行基线脚本，应按版本顺序执行 `script/sql/upgrade` 中尚未应用的增量脚本。
 
