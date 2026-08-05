@@ -273,6 +273,7 @@ insert into sys_menu values('19100', '授权资源', '19000', '1', 'resource', '
 insert into sys_menu values('19200', 'ABAC策略', '19000', '2', 'policy', 'platform/auth/policy/index', '', 1, 0, 'C', '0', '0', 'platform:auth:policy:query', 'shield', 103, 1, sysdate(), null, null, 'ABAC策略管理');
 insert into sys_menu values('19300', '共享授权', '19000', '3', 'grant', 'platform/auth/grant/index', '', 1, 0, 'C', '0', '0', 'platform:auth:grant:query', 'peoples', 103, 1, sysdate(), null, null, '运行时Grant管理');
 insert into sys_menu values('19400', '授权验证', '19000', '4', 'decision', 'platform/auth/decision/index', '', 1, 0, 'C', '0', '0', 'platform:auth:decision:evaluate', 'eye-open', 103, 1, sysdate(), null, null, '授权决策联调页面');
+insert into sys_menu values('19500', '凭据管理', '19000', '5', 'secret', 'platform/secret/index', '', 1, 0, 'C', '0', '0', 'platform:secret:list', 'key', 103, 1, sysdate(), null, null, '平台敏感凭据统一管理');
 insert into sys_menu values('20100', '数据源管理', '20000', '1', 'datasource', 'govdata/datasource/index', '', 1, 0, 'C', '0', '0', 'govdata:datasource:list', 'connection', 103, 1, sysdate(), null, null, '数据源管理菜单');
 insert into sys_menu values('100',  '用户管理',     '1',   '1', 'user',             'system/user/index',            '', 1, 0, 'C', '0', '0', 'system:user:list',            'user',          103, 1, sysdate(), null, null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理',     '1',   '2', 'role',             'system/role/index',            '', 1, 0, 'C', '0', '0', 'system:role:list',            'peoples',       103, 1, sysdate(), null, null, '角色管理菜单');
@@ -294,6 +295,10 @@ insert into sys_menu values('19202', '策略发布', '19200', '2', '', '', '', 1
 insert into sys_menu values('19301', '授权新增', '19300', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:add', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19302', '授权激活', '19300', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:activate', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19303', '授权撤销', '19300', '3', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:revoke', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19501', '凭据查询', '19500', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:query', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19502', '凭据新增', '19500', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:add', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19503', '凭据轮换', '19500', '3', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:rotate', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19504', '凭据启停', '19500', '4', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:edit', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('20101', '数据源查询', '20100', '1', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:query', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('20102', '数据源新增', '20100', '2', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:add', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('20103', '数据源修改', '20100', '3', '', '', '', 1, 0, 'F', '0', '0', 'govdata:datasource:edit', '#', 103, 1, sysdate(), null, null, '');

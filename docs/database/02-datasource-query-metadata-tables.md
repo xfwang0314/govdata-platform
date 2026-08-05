@@ -11,7 +11,7 @@ Connector 类型、配置 Schema 和 Capability 由 SPI 实现声明，运行时
 
 | 表名 | 阶段 | 关键字段 | 约束与主要索引 |
 |---|---|---|---|
-| `gd_datasource` | P0 | `datasource_id`、`datasource_code`、`datasource_name`、`connector_code`、`connector_version`、`endpoint_config_json`、`secret_ref`、`environment`、`owner_dept_id`、`readonly_flag`、`status`、`last_test_status`、`last_test_time` | `UK(tenant_id,datasource_code)`；按 Connector、状态、权属部门索引；配置必须符合 Connector Schema |
+| `gd_datasource` | P0 | `datasource_id`、`datasource_code`、`datasource_name`、`connector_code`、`connector_version`、`endpoint_config_json`、`secret_ref`、`environment`、`owner_dept_id`、`access_mode`、`classification_code`、`security_level`、`status`、`last_test_status`、`last_test_time` | 编码由服务端生成；`UK(tenant_id,datasource_code)`；按 Connector、状态、权属部门索引；配置必须符合 Connector Schema |
 | `gd_datasource_capability_override` | P1 | `override_id`、`datasource_id`、`capability_code`、`enabled_flag`、`limit_config_json`、`reason` | `UK(tenant_id,datasource_id,capability_code)`；只能收紧 Connector 声明能力，不能伪造插件未实现能力 |
 | `gd_datasource_connection_test` | P0 | `test_id`、`datasource_id`、`connector_code`、`connector_version`、`result`、`reason_code`、`latency_ms`、`server_info_json`、`actor_type`、`actor_id`、`trace_id`、`occurred_time` | 追加写；服务端信息脱敏；按数据源、结果、时间索引 |
 | `gd_datasource_health_snapshot` | P1 | `snapshot_id`、`datasource_id`、`health_status`、`latency_ms`、`pool_active`、`pool_idle`、`failure_code`、`actor_type`、`actor_id`、`trace_id`、`checked_time` | 追加写并按保留期清理；定时采样使用 `actor_type=SYSTEM`；按数据源和检查时间索引 |

@@ -23,20 +23,20 @@ DROP TABLE IF EXISTS authz_resource;
 CREATE TABLE authz_resource
 (
     resource_id          bigint        NOT NULL COMMENT '资源主键，雪花ID',
-    tenant_id            varchar(20)   NOT NULL COMMENT '地区租户编号',
-    resource_code        varchar(200)  NOT NULL COMMENT '租户内稳定资源编码',
+    tenant_id            varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
+    resource_code        varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '后端生成的稳定资源编码',
     resource_name        varchar(200)  NOT NULL COMMENT '资源名称',
-    resource_type        varchar(120)  NOT NULL COMMENT '资源类型编码',
+    resource_type        varchar(120) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源类型编码',
     parent_id            bigint        DEFAULT NULL COMMENT '父资源主键',
-    source_module        varchar(100)  NOT NULL COMMENT '来源模块',
-    business_id          varchar(100)  NOT NULL COMMENT '来源模块稳定业务ID',
+    source_module        varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '来源模块',
+    business_id          varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '来源模块稳定业务ID',
     owner_dept_id        bigint        DEFAULT NULL COMMENT '权属部门ID',
-    region_code          varchar(32)   DEFAULT NULL COMMENT '行政区划编码',
-    classification_level varchar(64)   DEFAULT NULL COMMENT '数据分类级别',
+    region_code          varchar(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '行政区划编码',
+    classification_code  varchar(32) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '数据分类编码',
     security_level       int           DEFAULT NULL COMMENT '安全密级',
     attributes_json      json          DEFAULT NULL COMMENT '已注册扩展授权属性JSON',
     inherit_policy       tinyint(1)    NOT NULL DEFAULT 1 COMMENT '是否继承父资源策略',
-    status               varchar(32)   NOT NULL COMMENT '状态：ACTIVE/DISABLED/ARCHIVED',
+    status               varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '状态：ACTIVE/DISABLED/ARCHIVED',
     lock_version         int           NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
     del_flag             char(1)       NOT NULL DEFAULT '0' COMMENT '删除标志：0存在，1删除',
     create_dept          bigint        DEFAULT NULL COMMENT '创建部门ID',
@@ -45,29 +45,28 @@ CREATE TABLE authz_resource
     update_by            bigint        DEFAULT NULL COMMENT '更新人ID',
     update_time          datetime(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     PRIMARY KEY (resource_id),
-    UNIQUE KEY uk_authz_resource_tenant_id (tenant_id, resource_id),
     UNIQUE KEY uk_authz_resource_code (tenant_id, resource_code),
     UNIQUE KEY uk_authz_resource_business (tenant_id, source_module, resource_type, business_id),
     KEY idx_authz_resource_parent (tenant_id, parent_id),
     KEY idx_authz_resource_type_status (tenant_id, resource_type, status),
     KEY idx_authz_resource_owner (tenant_id, owner_dept_id, status),
     CONSTRAINT ck_authz_resource_status CHECK (status IN ('ACTIVE', 'DISABLED', 'ARCHIVED')),
-    CONSTRAINT ck_authz_resource_security CHECK (security_level IS NULL OR security_level >= 0),
+    CONSTRAINT ck_authz_resource_security CHECK (security_level IS NULL OR security_level BETWEEN 1 AND 5),
+    CONSTRAINT ck_authz_resource_inherit CHECK (inherit_policy IN (0, 1)),
     CONSTRAINT ck_authz_resource_del_flag CHECK (del_flag IN ('0', '1'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '统一可授权资源投影';
 
 CREATE TABLE authz_resource_relation
 (
     relation_id        bigint       NOT NULL COMMENT '资源关系主键，雪花ID',
-    tenant_id          varchar(20)  NOT NULL COMMENT '地区租户编号',
+    tenant_id          varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     source_resource_id bigint       NOT NULL COMMENT '源资源主键',
     target_resource_id bigint       NOT NULL COMMENT '目标资源主键',
-    relation_type      varchar(64)  NOT NULL COMMENT '稳定关系类型编码',
+    relation_type      varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定关系类型编码',
     create_dept        bigint       DEFAULT NULL COMMENT '创建部门ID',
     create_by          bigint       DEFAULT NULL COMMENT '创建人ID',
     create_time        datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     PRIMARY KEY (relation_id),
-    UNIQUE KEY uk_authz_relation_tenant_id (tenant_id, relation_id),
     UNIQUE KEY uk_authz_relation_edge
         (tenant_id, source_resource_id, target_resource_id, relation_type),
     KEY idx_authz_relation_source (tenant_id, source_resource_id, relation_type),
@@ -78,12 +77,12 @@ CREATE TABLE authz_resource_relation
 CREATE TABLE authz_policy
 (
     policy_id         bigint       NOT NULL COMMENT '策略主键，雪花ID',
-    tenant_id         varchar(20)  NOT NULL COMMENT '地区租户编号',
-    policy_code       varchar(100) NOT NULL COMMENT '租户内稳定策略编码',
+    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
+    policy_code       varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '后端生成的稳定策略编码',
     policy_name       varchar(200) NOT NULL COMMENT '策略名称',
     current_version_id bigint      DEFAULT NULL COMMENT '当前发布策略版本主键',
-    risk_level        varchar(16)  NOT NULL DEFAULT 'LOW' COMMENT '风险等级：LOW/MEDIUM/HIGH/CRITICAL',
-    status            varchar(32)  NOT NULL COMMENT '状态：DRAFT/REVIEWING/PUBLISHED/DISABLED/ARCHIVED',
+    risk_level        varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'LOW' COMMENT '风险等级：LOW/MEDIUM/HIGH/CRITICAL',
+    status            varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '状态：DRAFT/REVIEWING/PUBLISHED/DISABLED/ARCHIVED',
     lock_version      int          NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
     del_flag          char(1)      NOT NULL DEFAULT '0' COMMENT '删除标志：0存在，1删除',
     create_dept       bigint       DEFAULT NULL COMMENT '创建部门ID',
@@ -92,7 +91,6 @@ CREATE TABLE authz_policy
     update_by         bigint       DEFAULT NULL COMMENT '更新人ID',
     update_time       datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     PRIMARY KEY (policy_id),
-    UNIQUE KEY uk_authz_policy_tenant_id (tenant_id, policy_id),
     UNIQUE KEY uk_authz_policy_code (tenant_id, policy_code),
     KEY idx_authz_policy_status (tenant_id, status, risk_level),
     CONSTRAINT ck_authz_policy_status
@@ -104,22 +102,20 @@ CREATE TABLE authz_policy
 CREATE TABLE authz_policy_version
 (
     policy_version_id bigint       NOT NULL COMMENT '策略版本主键，雪花ID',
-    tenant_id         varchar(20)  NOT NULL COMMENT '地区租户编号',
+    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     policy_id         bigint       NOT NULL COMMENT '策略主键',
     version_no        int          NOT NULL COMMENT '递增版本号',
-    effect            varchar(16)  NOT NULL COMMENT '策略效果：PERMIT/DENY',
+    effect            varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '策略效果：PERMIT/DENY',
     condition_json    json         NOT NULL COMMENT '受限ABAC条件DSL',
     obligation_json   json         DEFAULT NULL COMMENT '结构化附加约束',
     priority          int          NOT NULL DEFAULT 0 COMMENT '策略优先级，值越大优先级越高',
-    version_status    varchar(32)  NOT NULL COMMENT '版本状态：DRAFT/REVIEWING/PUBLISHED/DISABLED/ARCHIVED',
-    content_hash      char(64)     NOT NULL COMMENT '版本及全部子项规范化SHA-256',
+    version_status    varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '版本状态：DRAFT/REVIEWING/PUBLISHED/DISABLED/ARCHIVED',
+    content_hash      char(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '版本及全部子项规范化SHA-256',
     created_by        bigint       DEFAULT NULL COMMENT '版本创建人ID',
     created_time      datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '版本创建时间',
     published_by      bigint       DEFAULT NULL COMMENT '版本发布人ID',
     published_time    datetime(3)  DEFAULT NULL COMMENT '版本发布时间',
     PRIMARY KEY (policy_version_id),
-    UNIQUE KEY uk_authz_policy_ver_tenant_id (tenant_id, policy_version_id),
-    UNIQUE KEY uk_authz_policy_ver_owner (tenant_id, policy_id, policy_version_id),
     UNIQUE KEY uk_authz_policy_ver_no (tenant_id, policy_id, version_no),
     UNIQUE KEY uk_authz_policy_ver_hash (tenant_id, policy_id, content_hash),
     KEY idx_authz_policy_ver_status (tenant_id, policy_id, version_status),
@@ -134,14 +130,13 @@ CREATE TABLE authz_policy_version
 CREATE TABLE authz_policy_subject
 (
     binding_id       bigint       NOT NULL COMMENT '策略主体绑定主键，雪花ID',
-    tenant_id        varchar(20)  NOT NULL COMMENT '地区租户编号',
+    tenant_id        varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     policy_version_id bigint      NOT NULL COMMENT '策略版本主键',
-    subject_type     varchar(32)  NOT NULL COMMENT '主体类型：ANY/HUMAN/ROLE/DEPARTMENT/SERVICE/AGENT',
-    subject_id       varchar(100) NOT NULL COMMENT '主体稳定ID，ANY时固定为*',
+    subject_type     varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体类型：ANY/HUMAN/ROLE/DEPARTMENT/SERVICE/AGENT',
+    subject_id       varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体稳定ID，ANY时固定为*',
     create_by        bigint       DEFAULT NULL COMMENT '创建人ID',
     create_time      datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     PRIMARY KEY (binding_id),
-    UNIQUE KEY uk_authz_policy_subject_tenant_id (tenant_id, binding_id),
     UNIQUE KEY uk_authz_policy_subject
         (tenant_id, policy_version_id, subject_type, subject_id),
     KEY idx_authz_policy_subject_lookup
@@ -156,11 +151,11 @@ CREATE TABLE authz_policy_subject
 CREATE TABLE authz_policy_resource
 (
     binding_id        bigint       NOT NULL COMMENT '策略资源绑定主键，雪花ID',
-    tenant_id         varchar(20)  NOT NULL COMMENT '地区租户编号',
+    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     policy_version_id bigint       NOT NULL COMMENT '策略版本主键',
     resource_id       bigint       DEFAULT NULL COMMENT '资源主键，按具体资源绑定时填写',
-    resource_type     varchar(120) DEFAULT NULL COMMENT '资源类型，按类型绑定时填写',
-    resource_selector varchar(220) GENERATED ALWAYS AS
+    resource_type     varchar(120) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL COMMENT '资源类型，按类型绑定时填写',
+    resource_selector varchar(220) CHARACTER SET ascii COLLATE ascii_bin GENERATED ALWAYS AS
         (CASE WHEN resource_id IS NOT NULL
             THEN CONCAT('ID:', CAST(resource_id AS CHAR))
             ELSE CONCAT('TYPE:', resource_type) END) STORED COMMENT '资源选择器唯一键',
@@ -168,26 +163,25 @@ CREATE TABLE authz_policy_resource
     create_by         bigint       DEFAULT NULL COMMENT '创建人ID',
     create_time       datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     PRIMARY KEY (binding_id),
-    UNIQUE KEY uk_authz_policy_resource_tenant_id (tenant_id, binding_id),
     UNIQUE KEY uk_authz_policy_resource_selector
         (tenant_id, policy_version_id, resource_selector),
     KEY idx_authz_policy_resource_id (tenant_id, resource_id, policy_version_id),
     KEY idx_authz_policy_resource_type (tenant_id, resource_type, policy_version_id),
     CONSTRAINT ck_authz_policy_resource_target
         CHECK ((resource_id IS NOT NULL AND resource_type IS NULL)
-            OR (resource_id IS NULL AND resource_type IS NOT NULL))
+            OR (resource_id IS NULL AND resource_type IS NOT NULL)),
+    CONSTRAINT ck_authz_policy_resource_children CHECK (include_children IN (0, 1))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '策略版本资源绑定';
 
 CREATE TABLE authz_policy_action
 (
     binding_id        bigint       NOT NULL COMMENT '策略动作绑定主键，雪花ID',
-    tenant_id         varchar(20)  NOT NULL COMMENT '地区租户编号',
+    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     policy_version_id bigint       NOT NULL COMMENT '策略版本主键',
-    action_code       varchar(100) NOT NULL COMMENT '稳定授权动作编码',
+    action_code       varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定授权动作编码',
     create_by         bigint       DEFAULT NULL COMMENT '创建人ID',
     create_time       datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     PRIMARY KEY (binding_id),
-    UNIQUE KEY uk_authz_policy_action_tenant_id (tenant_id, binding_id),
     UNIQUE KEY uk_authz_policy_action (tenant_id, policy_version_id, action_code),
     KEY idx_authz_policy_action_lookup (tenant_id, action_code, policy_version_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '策略版本动作绑定';
@@ -195,19 +189,19 @@ CREATE TABLE authz_policy_action
 CREATE TABLE authz_grant
 (
     grant_id          bigint        NOT NULL COMMENT 'AuthorizationGrant主键，雪花ID',
-    tenant_id         varchar(20)   NOT NULL COMMENT '地区租户编号',
-    grant_no          varchar(100)  NOT NULL COMMENT '租户内稳定授权编号',
-    source_type       varchar(32)   NOT NULL COMMENT '来源类型：SHARING/ADMIN/SUBSCRIPTION/DELEGATION/SYSTEM',
-    source_id         varchar(100)  NOT NULL COMMENT '来源业务稳定ID',
-    grantor_type      varchar(32)   NOT NULL COMMENT '授权方类型：HUMAN/SERVICE/DEPARTMENT/SYSTEM',
-    grantor_id        varchar(100)  NOT NULL COMMENT '授权方稳定ID',
-    grantee_type      varchar(32)   NOT NULL COMMENT '被授权方类型：HUMAN/ROLE/DEPARTMENT/SERVICE/AGENT',
-    grantee_id        varchar(100)  NOT NULL COMMENT '被授权方稳定ID',
+    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
+    grant_code        varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '后端生成的稳定授权编码',
+    source_type       varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '来源类型：SHARING/ADMIN/SUBSCRIPTION/DELEGATION/SYSTEM',
+    source_id         varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '来源业务稳定ID',
+    grantor_type      varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '授权方类型：HUMAN/SERVICE/DEPARTMENT/SYSTEM',
+    grantor_id        varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '授权方稳定ID',
+    grantee_type      varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '被授权方类型：HUMAN/ROLE/DEPARTMENT/SERVICE/AGENT',
+    grantee_id        varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '被授权方稳定ID',
     purpose           varchar(500)  NOT NULL COMMENT '授权用途',
     effective_time    datetime(3)   NOT NULL COMMENT '生效时间',
     expire_time       datetime(3)   DEFAULT NULL COMMENT '失效时间',
     condition_json    json          DEFAULT NULL COMMENT '附加受限ABAC条件',
-    status            varchar(32)   NOT NULL COMMENT '状态：DRAFT/PENDING/ACTIVE/EXPIRED/REVOKED/ARCHIVED',
+    status            varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '状态：DRAFT/PENDING/ACTIVE/EXPIRED/REVOKED/ARCHIVED',
     revoked_by        bigint        DEFAULT NULL COMMENT '撤销人ID',
     revoked_time      datetime(3)   DEFAULT NULL COMMENT '撤销时间',
     revoke_reason     varchar(1000) DEFAULT NULL COMMENT '撤销原因',
@@ -219,8 +213,7 @@ CREATE TABLE authz_grant
     update_by         bigint        DEFAULT NULL COMMENT '更新人ID',
     update_time       datetime(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '更新时间',
     PRIMARY KEY (grant_id),
-    UNIQUE KEY uk_authz_grant_tenant_id (tenant_id, grant_id),
-    UNIQUE KEY uk_authz_grant_no (tenant_id, grant_no),
+    UNIQUE KEY uk_authz_grant_code (tenant_id, grant_code),
     UNIQUE KEY uk_authz_grant_source (tenant_id, source_type, source_id),
     KEY idx_authz_grant_grantee (tenant_id, grantee_type, grantee_id, status),
     KEY idx_authz_grant_validity (tenant_id, status, effective_time, expire_time),
@@ -241,18 +234,18 @@ CREATE TABLE authz_grant
 CREATE TABLE authz_grant_scope
 (
     scope_id          bigint       NOT NULL COMMENT 'Grant范围主键，雪花ID',
-    tenant_id         varchar(20)  NOT NULL COMMENT '地区租户编号',
+    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     grant_id          bigint       NOT NULL COMMENT 'AuthorizationGrant主键',
     resource_id       bigint       NOT NULL COMMENT '资源主键',
-    action_code       varchar(100) NOT NULL COMMENT '稳定授权动作编码',
+    action_code       varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定授权动作编码',
     include_children  tinyint(1)   NOT NULL DEFAULT 0 COMMENT '是否包含后代资源',
     obligation_json   json         DEFAULT NULL COMMENT '结构化行列、脱敏、限量和导出约束',
     create_by         bigint       DEFAULT NULL COMMENT '创建人ID',
     create_time       datetime(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
     PRIMARY KEY (scope_id),
-    UNIQUE KEY uk_authz_grant_scope_tenant_id (tenant_id, scope_id),
     UNIQUE KEY uk_authz_grant_scope (tenant_id, grant_id, resource_id, action_code),
-    KEY idx_authz_grant_scope_resource (tenant_id, resource_id, action_code, grant_id)
+    KEY idx_authz_grant_scope_resource (tenant_id, resource_id, action_code, grant_id),
+    CONSTRAINT ck_authz_grant_scope_children CHECK (include_children IN (0, 1))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'Grant资源动作与Obligation范围';
 
 
@@ -260,29 +253,28 @@ CREATE TABLE authz_grant_scope
 CREATE TABLE authz_decision_log
 (
     decision_id             bigint        NOT NULL COMMENT '授权决策日志主键，雪花ID',
-    tenant_id               varchar(20)   NOT NULL COMMENT '审计归属租户，通常为资源租户',
-    subject_tenant_id       varchar(20)   NOT NULL COMMENT '主体租户编号',
-    subject_type            varchar(32)   NOT NULL COMMENT '主体类型：HUMAN/SERVICE/AGENT',
-    subject_id              varchar(100)  NOT NULL COMMENT '主体稳定ID',
+    tenant_id               varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '审计归属租户，通常为资源租户',
+    subject_tenant_id       varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体租户编号',
+    subject_type            varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体类型：HUMAN/SERVICE/AGENT',
+    subject_id              varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体稳定ID',
     subject_snapshot_json   json          NOT NULL COMMENT '最小主体属性快照',
-    resource_tenant_id      varchar(20)   NOT NULL COMMENT '资源租户编号',
+    resource_tenant_id      varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源租户编号',
     resource_id             bigint        DEFAULT NULL COMMENT '资源主键',
-    resource_type_snapshot  varchar(120)  NOT NULL COMMENT '资源类型快照',
-    resource_code_snapshot  varchar(200)  NOT NULL COMMENT '资源编码快照',
-    action_code             varchar(100)  NOT NULL COMMENT '授权动作编码',
-    decision                varchar(16)   NOT NULL COMMENT '决策：PERMIT/DENY',
-    reason_code             varchar(100)  NOT NULL COMMENT '稳定决策原因编码',
+    resource_type_snapshot  varchar(120) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源类型快照',
+    resource_code_snapshot  varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源编码快照',
+    action_code             varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '授权动作编码',
+    decision                varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '决策：PERMIT/DENY',
+    reason_code             varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定决策原因编码',
     policy_version_ids_json json          DEFAULT NULL COMMENT '命中策略版本ID集合',
     grant_ids_json          json          DEFAULT NULL COMMENT '命中Grant ID集合',
     delegation_id           bigint        DEFAULT NULL COMMENT '命中委托主键',
     break_glass_access_id   bigint        DEFAULT NULL COMMENT '命中应急访问主键',
     obligation_summary_json json          DEFAULT NULL COMMENT '生效Obligation摘要',
     purpose                 varchar(500)  DEFAULT NULL COMMENT '访问用途',
-    trace_id                varchar(64)   NOT NULL COMMENT '链路追踪ID',
+    trace_id                varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '链路追踪ID',
     duration_ms             bigint        NOT NULL COMMENT '决策耗时毫秒',
     occurred_time           datetime(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '决策发生时间',
     PRIMARY KEY (decision_id),
-    UNIQUE KEY uk_authz_decision_tenant_id (tenant_id, decision_id),
     KEY idx_authz_decision_subject
         (tenant_id, subject_type, subject_id, occurred_time),
     KEY idx_authz_decision_resource
