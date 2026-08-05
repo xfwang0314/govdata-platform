@@ -44,9 +44,9 @@
 
 | 表名 | 阶段 | 关键字段 | 约束与主要索引 |
 |---|---|---|---|
-| `platform_secret` | P0 | `secret_id`、`secret_ref`、`secret_name`、`secret_type`、`owner_module`、`purpose_scope`、`current_version_id`、`status`、`expire_time` | `UK(tenant_id,secret_ref)`；按模块、类型、状态索引；禁止任何明文字段 |
+| `platform_secret` | P0 | `secret_id`、`secret_ref`、`secret_name`、`description`、`secret_type`、`owner_module`、`purpose_scope`、`current_version_id`、`status`、`expire_time` | `UK(tenant_id,secret_ref)`；按模块、类型、状态索引；description 只保存非敏感管理说明；禁止任何明文字段 |
 | `platform_secret_version` | P0 | `secret_version_id`、`secret_id`、`version_no`、`ciphertext`、`encryption_algorithm`、`key_version`、`checksum`、`effective_time`、`expire_time`、`status`、创建审计 | `UK(tenant_id,secret_id,version_no)`；密钥不在数据库；旧版本只禁用不覆盖 |
-| `platform_secret_access_log` | P1 | `access_log_id`、`secret_id`、`secret_ref_snapshot`、`caller_module`、`actor_type`、`actor_id`、`purpose`、`result`、`reason_code`、`trace_id`、`occurred_time` | 追加写；不保存 SecretValue；按 Secret、调用模块、主体、结果、时间索引 |
+| `platform_secret_access_log` | P0 | `access_log_id`、`secret_id`、`secret_ref_snapshot`、`caller_module`、`actor_type`、`actor_id`、`purpose`、`result`、`reason_code`、`trace_id`、`occurred_time` | 追加写；不保存 SecretValue；按 Secret、调用模块、主体、结果、时间索引 |
 
 ## platform-event
 
