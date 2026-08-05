@@ -30,7 +30,7 @@
 
 ```text
 platform-api
-└─ com.xfwang.platform.auth.api       授权契约、DTO、注解
+└─ com.xfwang.platform.api.auth       授权契约、DTO、注解（platform-api）
 
 platform-modules/platform-auth
 └─ com.xfwang.platform.auth

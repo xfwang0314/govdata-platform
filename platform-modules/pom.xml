@@ -17,6 +17,6 @@
 
     <modules>
         <module>platform-auth</module>
+        <module>platform-secret</module>
     </modules>
 </project>
-

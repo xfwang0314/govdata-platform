@@ -48,6 +48,7 @@
         <warm-flow.version>1.8.5</warm-flow.version>
         <clickhouse-jdbc.version>0.9.8</clickhouse-jdbc.version>
         <apache-sshd.version>2.16.0</apache-sshd.version>
+        <archunit.version>1.4.1</archunit.version>
 
         <!-- 插件版本 -->
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
@@ -351,6 +352,11 @@
                 <artifactId>platform-auth</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>platform-secret</artifactId>
+                <version>${revision}</version>
+            </dependency>
 
             <!-- 政务数据中台业务模块 -->
             <dependency>
@@ -367,6 +373,11 @@
                 <groupId>org.dromara</groupId>
                 <artifactId>govdata-api</artifactId>
                 <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
             </dependency>
 
         </dependencies>
@@ -460,8 +471,6 @@
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
                     <argLine>-Dfile.encoding=UTF-8</argLine>
-                    <!-- 根据打包环境执行对应的@Tag测试方法 -->
-                    <groups>${profiles.active}</groups>
                     <!-- 排除标签 -->
                     <excludedGroups>exclude</excludedGroups>
                 </configuration>

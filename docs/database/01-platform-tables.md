@@ -15,7 +15,7 @@
 
 | 表名 | 阶段 | 关键字段 | 约束与主要索引 |
 |---|---|---|---|
-| `authz_resource` | P0 | `resource_id`、`resource_code`、`resource_type`、`parent_id`、`source_module`、`business_id`、`owner_dept_id`、`region_code`、`classification_level`、`attributes_json`、`inherit_policy`、`status` | `UK(tenant_id,resource_code)`；`UK(tenant_id,source_module,resource_type,business_id)`；索引父资源、权属部门、类型状态 |
+| `authz_resource` | P0 | `resource_id`、`resource_code`、`resource_type`、`parent_id`、`source_module`、`business_id`、`owner_dept_id`、`region_code`、`classification_code`、`security_level`、`attributes_json`、`inherit_policy`、`status` | `UK(tenant_id,resource_code)`；`UK(tenant_id,source_module,resource_type,business_id)`；索引父资源、权属部门、类型状态 |
 | `authz_resource_relation` | P0 | `relation_id`、`source_resource_id`、`target_resource_id`、`relation_type` | `UK(tenant_id,source_resource_id,target_resource_id,relation_type)`；反向查询索引 |
 | `authz_attribute_schema` | P1 | `schema_id`、`scope_type`、`scope_key`、`attribute_code`、`namespace`、`applies_to`、`data_type`、`allowed_values_json`、`required_flag`、`overridable_flag`、`status` | `UK(scope_type,scope_key,attribute_code)`；按总览的全局注册表规则读取；策略发布只允许引用已启用属性 |
 | `platform_service_principal` | P0 | `service_id`、`service_code`、`service_name`、`owner_dept_id`、`client_id`、`secret_ref`、`purpose_scope`、`effective_time`、`expire_time`、`status` | `UK(tenant_id,service_code)`；`UK(tenant_id,client_id)`；SERVICE 使用独立客户端身份，Grant/Delegation 的 SERVICE ID 引用 `service_id` |
@@ -24,7 +24,7 @@
 | `authz_policy_subject` | P0 | `binding_id`、`policy_version_id`、`subject_type`、`subject_id` | `subject_type=ANY` 时 `subject_id='*'`，避免 MySQL NULL 唯一键失效；唯一绑定；索引 `(tenant_id,subject_type,subject_id,policy_version_id)` |
 | `authz_policy_resource` | P0 | `binding_id`、`policy_version_id`、`resource_id`、`resource_type`、`include_children` | 资源 ID 与资源类型至少一个非空；分别按资源 ID、类型索引 |
 | `authz_policy_action` | P0 | `binding_id`、`policy_version_id`、`action_code` | `UK(tenant_id,policy_version_id,action_code)`；不使用逗号字符串保存动作 |
-| `authz_grant` | P0 | `grant_id`、`grant_no`、`source_type`、`source_id`、`grantor_type`、`grantor_id`、`grantee_type`、`grantee_id`、`purpose`、`effective_time`、`expire_time`、`condition_json`、`status`、`revoked_time` | `UK(tenant_id,grant_no)`；来源幂等键 `UK(tenant_id,source_type,source_id)`；主体和有效期索引；禁止跨租户 |
+| `authz_grant` | P0 | `grant_id`、`grant_code`、`source_type`、`source_id`、`grantor_type`、`grantor_id`、`grantee_type`、`grantee_id`、`purpose`、`effective_time`、`expire_time`、`condition_json`、`status`、`revoked_time` | `UK(tenant_id,grant_code)`；来源幂等键 `UK(tenant_id,source_type,source_id)`；主体和有效期索引；禁止跨租户 |
 | `authz_grant_scope` | P0 | `scope_id`、`grant_id`、`resource_id`、`action_code`、`include_children`、`obligation_json` | `UK(tenant_id,grant_id,resource_id,action_code)`；资源反查索引 |
 | `authz_delegation` | P2 | `delegation_id`、`delegation_no`、`delegator_type`、`delegator_id`、`agent_id`、`agent_task_id`、`purpose`、`effective_time`、`expire_time`、`condition_json`、`status`、`source_grant_id` | 仅 `HUMAN/SERVICE → AGENT`；任务、Agent、有效期索引；不保存用户 Token |
 | `authz_delegation_scope` | P2 | `scope_id`、`delegation_id`、`resource_id`、`action_code`、`include_children`、`obligation_json` | 委托范围只能缩小，不能超过委托人和 Agent 基础能力交集 |
@@ -34,7 +34,8 @@
 
 ### 关键取舍
 
-- 当前 `ry_auth.sql` 中的可变单表策略需要升级为 `authz_policy + authz_policy_version`。
+- 当前可执行结构以 `script/sql/baseline/20_platform_auth.sql` 为准，策略采用
+  `authz_policy + authz_policy_version` 不可变版本模型。
 - Policy、Grant、Delegation 的动作均使用关系行，不再保存逗号分隔动作。
 - `authz_resource.attributes_json` 只允许保存 `authz_attribute_schema` 注册过的扩展属性。
 - Grant 保存业务来源引用，但不复制 SharingAgreement、Subscription 或审批详情。
@@ -44,9 +45,9 @@
 
 | 表名 | 阶段 | 关键字段 | 约束与主要索引 |
 |---|---|---|---|
-| `platform_secret` | P0 | `secret_id`、`secret_ref`、`secret_name`、`secret_type`、`owner_module`、`purpose_scope`、`current_version_id`、`status`、`expire_time` | `UK(tenant_id,secret_ref)`；按模块、类型、状态索引；禁止任何明文字段 |
+| `platform_secret` | P0 | `secret_id`、`secret_ref`、`secret_name`、`description`、`secret_type`、`owner_module`、`purpose_scope`、`current_version_id`、`status`、`expire_time` | `UK(tenant_id,secret_ref)`；按模块、类型、状态索引；description 只保存非敏感管理说明；禁止任何明文字段 |
 | `platform_secret_version` | P0 | `secret_version_id`、`secret_id`、`version_no`、`ciphertext`、`encryption_algorithm`、`key_version`、`checksum`、`effective_time`、`expire_time`、`status`、创建审计 | `UK(tenant_id,secret_id,version_no)`；密钥不在数据库；旧版本只禁用不覆盖 |
-| `platform_secret_access_log` | P1 | `access_log_id`、`secret_id`、`secret_ref_snapshot`、`caller_module`、`actor_type`、`actor_id`、`purpose`、`result`、`reason_code`、`trace_id`、`occurred_time` | 追加写；不保存 SecretValue；按 Secret、调用模块、主体、结果、时间索引 |
+| `platform_secret_access_log` | P0 | `access_log_id`、`secret_id`、`secret_ref_snapshot`、`caller_module`、`actor_type`、`actor_id`、`purpose`、`result`、`reason_code`、`trace_id`、`occurred_time` | 追加写；不保存 SecretValue；按 Secret、调用模块、主体、结果、时间索引 |
 
 ## platform-event
 

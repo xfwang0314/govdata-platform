@@ -29,6 +29,8 @@ SFTP 不伪装成 JDBC。高吞吐 Source、Sink、CDC、Checkpoint 使用 SeaTu
 ## 配置与凭据
 
 - 数据源业务配置只保存 endpoint 配置和 `secretRef`。
+- Connector Catalog 同时声明 `secretType` 和必要 Secret keys；页面按类型从
+  `/govdata/datasources/secret-references` 获取当前租户可选引用，不接触 SecretValue。
 - SecretProvider 在建立连接前按需解析凭据，响应和日志不回显。
 - Connector 统一管理连接池、超时、并发、资源释放和异常映射。
 - 测试连接也必须经过租户、权限和审计。
@@ -43,13 +45,13 @@ SFTP 不伪装成 JDBC。高吞吐 Source、Sink、CDC、Checkpoint 使用 SeaTu
 ```text
 DataSourceController
   -> Sa-Token 功能权限
-  -> DataSourceApplicationService
+  -> DataSourceManagementService
   -> DataSourceAuthorizedOperations
   -> @ResourceAuthorize(TEST_CONNECTION)
   -> platform-auth 决策
   -> ConnectionTesterRegistry
   -> 对应的 ConnectionTester Adapter
-  -> SecretProvider.resolve(secretRef)
+  -> SecretProvider.resolve(SecretResolveRequest)
   -> 写入脱敏测试记录
 ```
 

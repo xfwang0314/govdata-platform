@@ -25,6 +25,14 @@ _Avoid_: 数据源类型
 指向受保护凭据的稳定引用，业务配置不得包含凭据原文。
 _Avoid_: password 字段
 
+**Access Mode**:
+数据源凭据被允许承担的访问方式，第一版为只读或读写；它是能力和授权约束，不替代外部系统账号权限。
+_Avoid_: 仅用于页面展示的只读标记
+
+**Data Classification**:
+平台内部稳定的数据敏感分类，第一版为公开、内部、敏感、受限；不等同于国家秘密等级。
+_Avoid_: 可任意维护的展示字典
+
 ## 第一版实现
 
 - `govdata-datasource` 拥有 `gd_datasource` 和 `gd_datasource_connection_test`。
@@ -32,6 +40,11 @@ _Avoid_: password 字段
 - 页面功能权限由 Sa-Token 校验；连接测试另由 `@ResourceAuthorize` 执行 Resource + ABAC/Grant 决策。
 - 第一版内置 MySQL、Oracle、Redis、SFTP、Doris、ClickHouse 六种 `ConnectionTester`；平台控制库仍只支持 MySQL 8。
 - 页面通过 Connector Catalog 获取字段、默认值和能力，不自行维护 Connector 版本或任意 JDBC URL。
+- 数据源编码由服务端生成且创建后不可修改；Connector 编码由页面选择，Connector 版本由 Catalog 回填。
+- 环境、访问模式、数据分类、安全等级和状态由服务端固定选项提供，不以可编辑字典作为事实来源。
+- 新建和修改连接配置后数据源保持停用，连接测试成功后才能显式启用。
+- 数据源业务状态不等于授权 Resource 生命周期：对象存在期间 Resource 保持可授权，
+  `datasourceStatus` 作为属性参与 ABAC；仅删除数据源时归档 Resource。
 - 数据源支持启用、停用和逻辑删除；删除前必须先停用，状态同步到授权 Resource。
 - 每次连接测试保存脱敏结果和稳定原因码，页面可以分页查询测试历史。
-- 第一阶段提供 `env:用户名变量,密码变量` SecretProvider，后续可由 platform-secret Adapter 替换或扩展。
+- `platform-secret` 提供数据库密文 SecretProvider；`env:` Adapter 仅用于本地开发和部署注入。

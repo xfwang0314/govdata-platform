@@ -10,7 +10,7 @@
 
 第一版采用 Human 主体的 `Resource + ABAC + AuthorizationGrant` 核心子集，满足租户硬隔离、
 版本化 Policy、显式 Grant、结构化 Obligation 和追加式授权审计要求。DDL 可以作为空库目标结构
-评审。Java 实现与 `script/sql/ry_auth.sql` 已同步到该结构；该脚本仍是破坏性的空库基线，不能直接
+评审。Java 实现与 `script/sql/baseline/20_platform_auth.sql` 已同步到该结构；该脚本仍是破坏性的空库基线，不能直接
 应用到包含旧授权数据的运行库。
 
 SERVICE、AttributeSchema、Agent Delegation 和 BreakGlass 的表定义继续作为后续阶段注释附录保留，

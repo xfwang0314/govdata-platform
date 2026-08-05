@@ -3,15 +3,19 @@
 - 状态：架构基线 v1（已确认）
 - 适用范围：数据库密码、SFTP 私钥、API Secret、引擎凭据
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-01
+- 最后更新：2026-08-04
 
 ## 模型
 
 业务配置只保存 SecretRef。`platform-secret` 通过 SecretProvider 按需解析 SecretValue，第一阶段
-使用数据库密文 Adapter，未来可接 Vault、KMS 或密码机。
+使用数据库 AES-256-GCM 密文 Adapter，未来可接 Vault、KMS 或密码机。主密钥通过
+`PLATFORM_SECRET_MASTER_KEY` 注入，值为 Base64 编码的 32 字节随机密钥。
 
 Secret 记录包含 tenantId、secretType、密文、keyVersion、status 和 expireTime。主加密密钥不得与
 密文存放在同一数据库或提交到 Git。
+
+凭据名称用于简短识别；可选 description 用于记录用途、责任边界和维护说明。description 不参与
+SecretRef 解析、用途授权或程序匹配，也不得填写密码、Token、连接串等敏感内容。
 
 ## 生命周期
 
@@ -22,7 +26,10 @@ Secret 记录包含 tenantId、secretType、密文、keyVersion、status 和 exp
 
 - API、VO、异常和日志不包含 SecretValue。
 - 按 tenantId、调用模块和用途授权 Secret 解析。
+- 所属模块和用途必须先登记到 `SecretUsageCatalog`；管理页面使用级联选项，禁止自由输入。
+- `purposeScope` 保存稳定用途编码的逗号分隔集合，运行时与 `SecretResolveRequest.purpose` 精确匹配。
 - MCP Tool、Agent 和 SeaTunnel 任务定义不能获得永久明文。
 - SeaTunnel 使用安全变量或短期解析方式注入，平台审计只记录 SecretRef。
 - 开发环境不得使用生产 Secret；配置模板只包含占位符。
-
+- 数据库 SecretRef 使用 `secret:sec_xxx`；`env:` 仅作为本地开发和部署注入 Adapter。
+- Secret 创建和轮换接口的操作日志禁止保存请求和响应参数。

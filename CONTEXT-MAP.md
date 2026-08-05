@@ -32,3 +32,15 @@
 - 每张业务表只有一个拥有者；跨领域只引用稳定 ID 或必要快照。
 - 跨模块默认最终一致；关键激活和撤销流程必须等待处理确认。
 - Resource 是授权投影，不是统一业务实体大表。
+
+## 开发规范入口
+
+- [Java 开发规范](docs/standards/java-coding.md)
+- [Java 分层与包结构](docs/standards/java-layering.md)
+- [测试与质量门禁](docs/standards/testing.md)
+- [Java 功能开发清单](.agents/checklists/java-feature.md)
+- [MySQL 8 与控制库 SQL 规范](docs/standards/mysql-sql.md)
+- [外部数据源受控查询 SQL 规范](docs/standards/external-query-sql.md)
+- [手工数据库初始化与升级](docs/standards/manual-database-upgrade.md)
+- [SQL 变更检查清单](.agents/checklists/sql-change.md)
+- [SQL 规范现状差距报告](docs/database/SQL-STANDARDS-GAP-REPORT.md)

@@ -208,6 +208,15 @@ springdoc:
       packages-to-scan: com.xfwang.platform.auth.controller
     - group: 6.数据源模块
       packages-to-scan: com.xfwang.govdata.datasource.controller
+    - group: 7.平台凭据模块
+      packages-to-scan: com.xfwang.platform.secret.interfaces
+
+platform:
+  secret:
+    encryption:
+      # Base64 编码的 32 字节 AES 主密钥，只能通过部署环境注入。
+      master-key: ${PLATFORM_SECRET_MASTER_KEY}
+      key-version: ${PLATFORM_SECRET_KEY_VERSION:v1}
 
 # 防止XSS攻击
 xss:

@@ -23,7 +23,7 @@
 
 ## 准备数据库与服务
 
-1. `script/sql/ry_auth.sql` 是空库或可丢弃开发库的授权基线，会删除并重建授权表。禁止直接在已有数据的环境执行。
+1. `script/sql/baseline/20_platform_auth.sql` 是空库或可丢弃开发库的授权基线，会删除并重建授权表。禁止直接在已有数据的环境执行。
 2. 已有运行数据的环境必须先备份，并等待专用升级脚本评审后再迁移。
 3. 启动 MySQL、Redis 和后端，使用超级管理员登录。
 4. 打开 `http://localhost:8080/swagger-ui/index.html`，在右上角分组中选择
@@ -129,7 +129,6 @@ platform:auth:decision:evaluate
 
 ```json
 {
-  "grantNo": "SMOKE-GRANT-0001",
   "sourceType": "ADMIN",
   "sourceId": "SMOKE-REQUEST-0001",
   "grantorType": "DEPARTMENT",
