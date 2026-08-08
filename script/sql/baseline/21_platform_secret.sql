@@ -17,7 +17,7 @@ CREATE TABLE platform_secret
     secret_code         varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '租户内稳定凭据编码，由服务端生成',
     secret_name         varchar(100)  NOT NULL COMMENT '凭据名称',
     description         varchar(500)  DEFAULT NULL COMMENT '凭据用途、责任边界和维护说明，不得填写敏感值',
-    secret_type         varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '类型：USERNAME_PASSWORD/PASSWORD/TOKEN/KEY_VALUE',
+    secret_type         varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定凭据类型编码',
     owner_module        varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '允许解析该凭据的拥有模块',
     purpose_scope       varchar(500) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '允许用途编码，逗号分隔或*',
     current_version_id  bigint        DEFAULT NULL COMMENT '当前密文版本主键',
@@ -34,7 +34,7 @@ CREATE TABLE platform_secret
     UNIQUE KEY uk_platform_secret_ref (tenant_id, secret_ref),
     UNIQUE KEY uk_platform_secret_code (tenant_id, secret_code),
     KEY idx_platform_secret_owner (tenant_id, owner_module, secret_type, status),
-    CONSTRAINT ck_platform_secret_type CHECK (secret_type IN ('USERNAME_PASSWORD', 'PASSWORD', 'TOKEN', 'KEY_VALUE')),
+    CONSTRAINT ck_platform_secret_type CHECK (secret_type IN ('USERNAME_PASSWORD', 'PASSWORD', 'TOKEN', 'API_KEY', 'SSH_PRIVATE_KEY', 'OAUTH2_CLIENT', 'KEY_VALUE')),
     CONSTRAINT ck_platform_secret_status CHECK (status IN ('ACTIVE', 'DISABLED')),
     CONSTRAINT ck_platform_secret_del CHECK (del_flag IN ('0', '1'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='平台凭据元数据';

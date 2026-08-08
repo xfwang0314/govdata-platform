@@ -5,7 +5,7 @@ import com.xfwang.platform.secret.application.management.command.SecretUpdateCom
 import com.xfwang.platform.secret.application.management.view.SecretView;
 import com.xfwang.platform.secret.application.options.SecretUsageCatalog;
 import com.xfwang.platform.secret.domain.entity.PlatformSecret;
-import com.xfwang.platform.secret.infrastructure.crypto.AesGcmSecretCipher;
+import com.xfwang.platform.secret.infrastructure.crypto.SecretCipherFacade;
 import com.xfwang.platform.secret.infrastructure.persistence.mapper.PlatformSecretMapper;
 import com.xfwang.platform.secret.infrastructure.persistence.mapper.PlatformSecretVersionMapper;
 import org.junit.jupiter.api.Test;
@@ -33,7 +33,7 @@ class SecretDescriptionContractTest {
         PlatformSecretVersionMapper versionMapper = mock(PlatformSecretVersionMapper.class);
         SecretUsageCatalog usageCatalog = mock(SecretUsageCatalog.class);
         SecretManagementService service = new SecretManagementService(secretMapper, versionMapper,
-            mock(AesGcmSecretCipher.class), usageCatalog);
+            mock(SecretCipherFacade.class), usageCatalog);
         PlatformSecret secret = new PlatformSecret();
         secret.setSecretId(1L);
         secret.setSecretName("old");

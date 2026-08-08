@@ -11,6 +11,7 @@ import java.util.Set;
 public class SecretResolveRequest {
     String tenantId;
     String secretRef;
+    SecretType expectedSecretType;
     String callerModule;
     String actorType;
     String actorId;

@@ -11,6 +11,6 @@ import java.time.LocalDateTime;
 public class SecretReference {
     String secretRef;
     String secretName;
-    String secretType;
+    SecretType secretType;
     LocalDateTime expireTime;
 }
