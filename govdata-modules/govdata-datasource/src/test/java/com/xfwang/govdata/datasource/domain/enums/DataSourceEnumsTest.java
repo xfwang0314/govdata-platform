@@ -17,6 +17,9 @@ class DataSourceEnumsTest {
         assertThat(options.getClassifications()).extracting("value")
             .containsExactly("PUBLIC", "INTERNAL", "SENSITIVE", "RESTRICTED");
         assertThat(options.getSecurityLevels()).hasSize(5);
+        assertThat(options.getConnectionTestReasons()).extracting("value", "label")
+            .contains(org.assertj.core.groups.Tuple.tuple("AUTHENTICATION_FAILED", "认证失败，请检查用户名和密码"),
+                org.assertj.core.groups.Tuple.tuple("CONNECTED", "连接成功"));
         assertThat(DataSourceEnums.environment("PROD")).isEqualTo("PROD");
         assertThatThrownBy(() -> DataSourceEnums.status("DELETED")).isInstanceOf(RuntimeException.class);
     }

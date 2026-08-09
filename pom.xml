@@ -47,7 +47,7 @@
         <!-- 工作流配置 -->
         <warm-flow.version>1.8.5</warm-flow.version>
         <clickhouse-jdbc.version>0.9.8</clickhouse-jdbc.version>
-        <apache-sshd.version>2.16.0</apache-sshd.version>
+        <apache-sshd.version>2.19.0</apache-sshd.version>
         <archunit.version>1.4.1</archunit.version>
 
         <!-- 插件版本 -->
@@ -205,9 +205,15 @@
 
             <dependency>
                 <groupId>org.apache.sshd</groupId>
+                <artifactId>sshd-core</artifactId>
+                <version>${apache-sshd.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.sshd</groupId>
                 <artifactId>sshd-sftp</artifactId>
                 <version>${apache-sshd.version}</version>
             </dependency>
+
 
             <dependency>
                 <groupId>org.mybatis</groupId>

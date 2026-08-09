@@ -1,9 +1,12 @@
 package com.xfwang.govdata.datasource.infrastructure.connector.jdbc;
 
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTestRequest;
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTestResult;
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTester;
+import com.xfwang.govdata.datasource.domain.enums.ConnectionTestReason;
+import com.xfwang.govdata.datasource.infrastructure.connector.AbstractConnectionTester;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestRequest;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestResult;
+import com.xfwang.govdata.datasource.infrastructure.connector.support.ConnectionFailureClassifier;
 import com.xfwang.platform.api.secret.SecretProvider;
+import com.xfwang.platform.api.secret.SecretType;
 import com.xfwang.platform.api.secret.SecretValue;
 
 import java.sql.Connection;
@@ -12,56 +15,62 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.regex.Pattern;
-import java.util.Set;
 
-/** JDBC Connector 共用的凭据解析、超时、资源释放和异常脱敏实现。 */
-public abstract class AbstractJdbcConnectionTester implements ConnectionTester {
+/**
+ * JDBC 类型 Connector 的抽象测试基类。
+ *
+ * <p>继承自 {@link AbstractConnectionTester}，统一实现了 JDBC Driver 类的加载、参数配置、
+ * 凭据解析、DriverManager 连接建立以及连接有效性验证等标准模版流程。</p>
+ */
+public abstract class AbstractJdbcConnectionTester extends AbstractConnectionTester {
 
-    protected static final Pattern HOST = Pattern.compile("^[a-zA-Z0-9._-]{1,253}$");
-    protected static final Pattern IDENTIFIER = Pattern.compile("^[a-zA-Z0-9_$-]{1,128}$");
-    private final List<SecretProvider> secretProviders;
-
+    /**
+     * 构造函数，注入凭据解析提供者。
+     *
+     * @param secretProviders 凭据解析提供者列表
+     */
     protected AbstractJdbcConnectionTester(List<SecretProvider> secretProviders) {
-        this.secretProviders = secretProviders;
+        super(secretProviders);
     }
 
-    @Override
-    public boolean supports(String connectorCode, String connectorVersion) {
-        return code().equalsIgnoreCase(connectorCode) && version().equals(connectorVersion);
-    }
-
+    /**
+     * 执行 JDBC 连接测试的统一模版流程。
+     *
+     * @param request 连通测试请求
+     * @return 连通测试结果
+     */
     @Override
     public final ConnectionTestResult test(ConnectionTestRequest request) {
         String validationMessage = validateEndpoint(request);
         if (validationMessage != null) {
-            return failed("ENDPOINT_INVALID", validationMessage, 0);
+            return failed(ConnectionTestReason.ENDPOINT_INVALID, validationMessage, 0);
         }
-        Optional<SecretValue> resolved = secretProviders.stream()
-            .map(provider -> provider.resolve(request.secretRequest(Set.of("username", "password"))))
-            .flatMap(Optional::stream).findFirst();
+        Optional<SecretValue> resolved = resolveSecret(request, SecretType.USERNAME_PASSWORD, SecretType.USERNAME_PASSWORD.requiredKeys());
         if (resolved.isEmpty()) {
-            return failed("SECRET_UNAVAILABLE", "SecretRef 无法解析", 0);
+            return failed(ConnectionTestReason.SECRET_UNAVAILABLE, null, 0);
         }
         long started = System.nanoTime();
         try (SecretValue secret = resolved.orElseThrow()) {
             char[] username = secret.get("username");
             char[] password = secret.get("password");
             if (username == null || password == null) {
-                return failed("SECRET_FIELDS_MISSING", "凭据缺少 username 或 password", elapsed(started));
+                return failed(ConnectionTestReason.SECRET_FIELDS_MISSING, null, elapsed(started));
             }
             Class.forName(driverClassName());
             Properties properties = new Properties();
             properties.setProperty("user", new String(username));
             properties.setProperty("username", new String(username));
             properties.setProperty("password", new String(password));
+            driverProperties(request).forEach(properties::setProperty);
             configure(properties, request);
-            try (Connection connection = DriverManager.getConnection(jdbcUrl(request), properties)) {
-                if (!connection.isValid(5)) {
-                    return failed("CONNECTION_INVALID", "连接建立后校验失败", elapsed(started));
+            try (Connection connection = DriverManager.getConnection(connectionTarget(request), properties)) {
+                if (!validateConnection(connection)) {
+                    return failed(ConnectionTestReason.CONNECTION_INVALID, null, elapsed(started));
                 }
                 return ConnectionTestResult.builder()
-                    .success(true).reasonCode("CONNECTED").message("连接成功")
+                    .success(true)
+                    .reasonCode(ConnectionTestReason.CONNECTED.code())
+                    .message(ConnectionTestReason.CONNECTED.message())
                     .latencyMs(elapsed(started))
                     .serverInfo(Map.of(
                         "product", connection.getMetaData().getDatabaseProductName(),
@@ -69,47 +78,94 @@ public abstract class AbstractJdbcConnectionTester implements ConnectionTester {
                         "driver", connection.getMetaData().getDriverName()))
                     .build();
             }
-        } catch (Exception ignored) {
-            return failed("CONNECTION_FAILED", "连接失败，请检查端点、凭据、驱动和网络", elapsed(started));
+        } catch (Exception exception) {
+            ConnectionTestReason reason = ConnectionFailureClassifier.classify(exception);
+            return failed(reason, null, elapsed(started));
         }
     }
 
+    /**
+     * 兼容方法：返回 Connector 编码。
+     *
+     * @return Connector 编码
+     */
     protected abstract String code();
+
+    /**
+     * 兼容方法：返回 Connector 版本。
+     *
+     * @return Connector 版本
+     */
     protected abstract String version();
+
+    @Override
+    protected String connectorCode() {
+        return code();
+    }
+
+    @Override
+    protected String connectorVersion() {
+        return version();
+    }
+
+    /**
+     * 获取数据库驱动类全类名。
+     *
+     * @return 驱动类全名
+     */
     protected abstract String driverClassName();
-    protected abstract String jdbcUrl(ConnectionTestRequest request);
 
+    /**
+     * 验证端点配置参数是否完备。
+     *
+     * @param request 连通测试请求
+     * @return 验证失败时的错误消息，成功时返回 null
+     */
     protected String validateEndpoint(ConnectionTestRequest request) {
-        String host = text(request, "host");
-        int port = integer(request, "port");
-        return !HOST.matcher(host).matches() || port < 1 || port > 65535
-            ? "host 或 port 配置无效" : null;
+        return connectionTarget(request).isBlank() ? "JDBC 连接目标不能为空" : null;
     }
 
+    /**
+     * 计算 JDBC 连接目标 URL。
+     *
+     * @param request 连通测试请求
+     * @return 连接目标字符串
+     */
+    private String connectionTarget(ConnectionTestRequest request) {
+        String target = text(request, "connectionTarget");
+        return target.isBlank() ? text(request, "jdbcUrl") : target;
+    }
+
+    /**
+     * 扩展配置钩子：子类可覆盖此方法设置特定 JDBC 超时或额外参数。
+     *
+     * @param properties 配置属性
+     * @param request    连通测试请求
+     */
     protected void configure(Properties properties, ConnectionTestRequest request) {
-        properties.setProperty("connectTimeout", "5000");
-        properties.setProperty("socketTimeout", "5000");
+        // 超时参数名称和单位由具体 JDBC Adapter 声明。
     }
 
-    protected String text(ConnectionTestRequest request, String key) {
-        Object value = request.getEndpointConfig().get(key);
-        return value == null ? "" : value.toString().trim();
+    /**
+     * 验证 JDBC Connection 是否存活有效。
+     *
+     * @param connection 已建立的 JDBC 连接
+     * @return 有效返回 true，否则返回 false
+     * @throws java.sql.SQLException 如果数据库校验失败
+     */
+    protected boolean validateConnection(Connection connection) throws java.sql.SQLException {
+        return connection.isValid(5);
     }
 
-    protected int integer(ConnectionTestRequest request, String key) {
-        try {
-            return Integer.parseInt(text(request, key));
-        } catch (NumberFormatException ignored) {
-            return -1;
-        }
-    }
-
-    protected ConnectionTestResult failed(String reasonCode, String message, long latencyMs) {
-        return ConnectionTestResult.builder().success(false).reasonCode(reasonCode)
-            .message(message).latencyMs(latencyMs).build();
-    }
-
-    protected long elapsed(long started) {
-        return (System.nanoTime() - started) / 1_000_000;
+    /**
+     * 提取驱动特定附加属性。
+     *
+     * @param request 连通测试请求
+     * @return 属性 Map
+     */
+    @SuppressWarnings("unchecked")
+    protected Map<String, String> driverProperties(ConnectionTestRequest request) {
+        Object value = request.getEndpointConfig().get("properties");
+        return value instanceof Map<?, ?> map ? (Map<String, String>) map : Map.of();
     }
 }

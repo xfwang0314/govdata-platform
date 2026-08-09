@@ -1,7 +1,8 @@
 package com.xfwang.govdata.datasource.infrastructure.connector.mysql;
 
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTestRequest;
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTestResult;
+import com.xfwang.govdata.datasource.domain.enums.ConnectionTestReason;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestRequest;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;
 
@@ -15,13 +16,12 @@ class MySqlConnectionTesterTest {
     private final MySqlConnectionTester tester = new MySqlConnectionTester(java.util.List.of());
 
     @Test
-    void rejectsArbitraryHostBeforeResolvingSecret() {
+    void rejectsBlankJdbcUrlBeforeResolvingSecret() {
         ConnectionTestResult result = tester.test(ConnectionTestRequest.builder()
             .connectorCode("mysql")
             .connectorVersion("8")
-            .endpointConfig(Map.of("host", "db.local/?allowLoadLocalInfile=true", "port", 3306,
-                "database", "govdata"))
-            .secretRef("env:DB_USER,DB_PASSWORD")
+            .endpointConfig(Map.of("jdbcUrl", ""))
+            .secretRef("secret:sec_mysql")
             .build());
 
         assertThat(result.isSuccess()).isFalse();
@@ -33,7 +33,7 @@ class MySqlConnectionTesterTest {
         ConnectionTestResult result = tester.test(ConnectionTestRequest.builder()
             .connectorCode("mysql")
             .connectorVersion("8")
-            .endpointConfig(Map.of("host", "127.0.0.1", "port", 3306, "database", "govdata"))
+            .endpointConfig(Map.of("jdbcUrl", "jdbc:mysql://127.0.0.1:3306/govdata"))
             .secretRef("vault:missing")
             .build());
 

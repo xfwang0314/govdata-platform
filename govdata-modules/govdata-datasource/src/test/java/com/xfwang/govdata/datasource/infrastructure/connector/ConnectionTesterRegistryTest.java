@@ -1,6 +1,9 @@
 package com.xfwang.govdata.datasource.infrastructure.connector;
 
 import com.xfwang.govdata.datasource.domain.exception.DataSourceErrorCode;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestRequest;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestResult;
+import com.xfwang.govdata.datasource.infrastructure.connector.registry.ConnectionTesterRegistry;
 import org.dromara.common.core.exception.ServiceException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Tag;

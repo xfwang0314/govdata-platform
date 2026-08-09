@@ -1,20 +1,21 @@
 package com.xfwang.govdata.datasource.application.management;
 
+import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.xfwang.govdata.datasource.domain.exception.DataSourceErrorCode;
-import com.xfwang.govdata.datasource.domain.entity.DataSourceInstance;
-import com.xfwang.govdata.datasource.domain.enums.DataSourceEnums;
-import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceInstanceMapper;
 import com.xfwang.govdata.datasource.application.management.command.DataSourceCommand;
 import com.xfwang.govdata.datasource.application.management.query.DataSourceQuery;
 import com.xfwang.govdata.datasource.application.management.view.DataSourceView;
-import com.xfwang.platform.api.auth.model.ResourceDescriptor;
-import com.xfwang.platform.api.auth.service.ResourceRegistry;
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectorCatalog;
 import com.xfwang.govdata.datasource.domain.connector.ConnectorDescriptor;
+import com.xfwang.govdata.datasource.domain.entity.DataSourceInstance;
+import com.xfwang.govdata.datasource.domain.enums.DataSourceEnums;
+import com.xfwang.govdata.datasource.domain.enums.DataSourceSecretUsage;
+import com.xfwang.govdata.datasource.domain.exception.DataSourceErrorCode;
+import com.xfwang.govdata.datasource.infrastructure.connector.ConnectorCatalog;
+import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceInstanceMapper;
+import com.xfwang.platform.api.secret.SecretCatalog;
+import com.xfwang.platform.api.secret.SecretReferenceValidation;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.exception.GlobalErrorCode;
@@ -25,13 +26,18 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** 数据源实例用例编排。 */
+/**
+ * 数据源实例管理应用服务。
+ *
+ * <p>负责数据源的生命周期编排（创建、修改、启用/停用、删除、分页查询与详情检索），
+ * 严格执行 Connector 端点规范校验、敏感字段禁用、凭据有效性校验及乐观锁控制。</p>
+ */
 @Service
 @RequiredArgsConstructor
 public class DataSourceManagementService {
@@ -40,9 +46,16 @@ public class DataSourceManagementService {
         "password", "passwd", "pwd", "token", "secret", "privatekey", "accesskey");
 
     private final DataSourceInstanceMapper instanceMapper;
-    private final ResourceRegistry resourceRegistry;
     private final ConnectorCatalog connectorCatalog;
+    private final SecretCatalog secretCatalog;
 
+    /**
+     * 分页查询数据源列表。
+     *
+     * @param query     查询条件对象
+     * @param pageQuery 分页参数
+     * @return 数据源视图分页结果
+     */
     public PageResult<DataSourceView> page(DataSourceQuery query, PageQuery pageQuery) {
         validateQuery(query);
         LambdaQueryWrapper<DataSourceInstance> wrapper = new LambdaQueryWrapper<DataSourceInstance>()
@@ -68,10 +81,23 @@ public class DataSourceManagementService {
         return PageResult.build(page.getRecords().stream().map(this::toView).toList(), page.getTotal());
     }
 
+    /**
+     * 查询指定数据源详情视图。
+     *
+     * @param datasourceId 数据源 ID
+     * @return 数据源视图
+     * @throws ServiceException 如果数据源不存在
+     */
     public DataSourceView get(Long datasourceId) {
         return toView(require(datasourceId));
     }
 
+    /**
+     * 创建新数据源。
+     *
+     * @param command 数据源创建命令
+     * @return 创建后的数据源视图
+     */
     @Transactional(rollbackFor = Exception.class)
     public DataSourceView create(DataSourceCommand command) {
         ConnectorDescriptor descriptor = prepare(command);
@@ -85,13 +111,17 @@ public class DataSourceManagementService {
         instance.setLockVersion(0);
         instance.setDelFlag("0");
         instanceMapper.insert(instance);
-
-        ResourceDescriptor resource = resourceRegistry.register(toResourceDescriptor(instance));
-        instance.setAuthzResourceId(resource.getResourceId());
-        instanceMapper.updateById(instance);
         return toView(instance);
     }
 
+    /**
+     * 修改现有数据源端点与凭据配置。
+     *
+     * @param datasourceId 数据源 ID
+     * @param command      数据源更新命令
+     * @return 更新后的数据源视图
+     * @throws ServiceException 如果数据源不存在或乐观锁冲突
+     */
     @Transactional(rollbackFor = Exception.class)
     public DataSourceView update(Long datasourceId, DataSourceCommand command) {
         ConnectorDescriptor descriptor = prepare(command);
@@ -107,10 +137,17 @@ public class DataSourceManagementService {
         if (instanceMapper.updateById(instance) != 1) {
             throw new ServiceException(GlobalErrorCode.BUSINESS_ERROR, "数据源已被其他请求修改，请刷新后重试");
         }
-        resourceRegistry.register(toResourceDescriptor(instance));
         return toView(instance);
     }
 
+    /**
+     * 变更数据源状态（启用 ACTIVE / 停用 DISABLED）。
+     *
+     * @param datasourceId 数据源 ID
+     * @param status       目标状态
+     * @return 更新后的数据源视图
+     * @throws ServiceException 如果未经过连通测试成功即尝试启用
+     */
     @Transactional(rollbackFor = Exception.class)
     public DataSourceView changeStatus(Long datasourceId, String status) {
         if (!Set.of("ACTIVE", "DISABLED").contains(status)) {
@@ -122,36 +159,27 @@ public class DataSourceManagementService {
         }
         instance.setStatus(status);
         instanceMapper.updateById(instance);
-        resourceRegistry.register(toResourceDescriptor(instance));
         return toView(instance);
     }
 
-    ResourceDescriptor toResourceDescriptor(DataSourceInstance instance) {
-        return ResourceDescriptor.builder().resourceId(instance.getAuthzResourceId())
-            .resourceName(instance.getDatasourceName())
-            .resourceType("govdata:data-source")
-            .businessId(instance.getDatasourceId().toString())
-            .sourceModule("govdata-datasource")
-            .ownerDeptId(instance.getOwnerDeptId())
-            .classification(instance.getClassificationCode())
-            .securityLevel(instance.getSecurityLevel())
-            .status("ACTIVE")
-            .attributes(Map.of("connectorCode", instance.getConnectorCode(),
-                "environment", instance.getEnvironment(), "accessMode", instance.getAccessMode(),
-                "datasourceStatus", instance.getStatus()))
-            .build();
-    }
-
+    /**
+     * 逻辑删除数据源。
+     *
+     * @param datasourceId 数据源 ID
+     * @throws ServiceException 如果数据源处于 ACTIVE 状态
+     */
     @Transactional(rollbackFor = Exception.class)
     public void remove(Long datasourceId) {
         DataSourceInstance instance = require(datasourceId);
         if (!"DISABLED".equals(instance.getStatus())) {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "请先停用数据源再删除");
         }
-        resourceRegistry.changeStatus(instance.getAuthzResourceId(), "ARCHIVED");
         instanceMapper.deleteById(instance);
     }
 
+    /**
+     * 必须获取数据源实体，否则抛出 NOT_FOUND 异常。
+     */
     DataSourceInstance require(Long datasourceId) {
         DataSourceInstance instance = datasourceId == null ? null : instanceMapper.selectById(datasourceId);
         if (instance == null) {
@@ -164,6 +192,7 @@ public class DataSourceManagementService {
         target.setDatasourceName(source.getDatasourceName());
         target.setConnectorCode(source.getConnectorCode().toLowerCase(Locale.ROOT));
         target.setConnectorVersion(descriptor.getConnectorVersion());
+        target.setAuthProfileCode(source.getAuthProfileCode().toUpperCase(Locale.ROOT));
         target.setEndpointConfigJson(JsonUtils.toJsonString(source.getEndpointConfig()));
         target.setSecretRef(source.getSecretRef());
         target.setEnvironment(DataSourceEnums.environment(source.getEnvironment()));
@@ -189,9 +218,30 @@ public class DataSourceManagementService {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "endpointConfig 不能超过 8KB");
         }
         Map<String, Object> normalized = new HashMap<>(endpoint);
-        ConnectorDescriptor descriptor = connectorCatalog.validate(command.getConnectorCode(), normalized);
+        ConnectorDescriptor descriptor = connectorCatalog.validate(command.getConnectorCode(),
+            command.getAuthProfileCode(), command.getEnvironment(), normalized);
+        var authProfile = connectorCatalog.requireAuthProfile(descriptor, command.getAuthProfileCode());
+        validateSecretReference(command, authProfile);
         command.setEndpointConfig(normalized);
         return descriptor;
+    }
+
+    void validateSecretReference(DataSourceCommand command,
+                                  com.xfwang.govdata.datasource.domain.connector.ConnectorAuthProfile authProfile) {
+        if (authProfile.getSecretType() == null) {
+            if (StringUtils.isNotBlank(command.getSecretRef())) {
+                throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "无认证方式禁止提交凭据引用");
+            }
+            command.setSecretRef(null);
+            return;
+        }
+        if (StringUtils.isBlank(command.getSecretRef())) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "当前认证方式必须选择连接凭据");
+        }
+        secretCatalog.validateReference(SecretReferenceValidation.builder()
+            .secretRef(command.getSecretRef()).callerModule(DataSourceSecretUsage.OWNER_MODULE)
+            .secretType(authProfile.getSecretType()).purpose(DataSourceSecretUsage.CONNECTION_TEST.code())
+            .requiredKeys(authProfile.getRequiredKeys()).build());
     }
 
     private void validateQuery(DataSourceQuery query) {
@@ -229,6 +279,7 @@ public class DataSourceManagementService {
             .datasourceName(instance.getDatasourceName())
             .connectorCode(instance.getConnectorCode())
             .connectorVersion(instance.getConnectorVersion())
+            .authProfileCode(instance.getAuthProfileCode())
             .endpointConfig(endpoint == null ? Map.of() : endpoint)
             .secretRef(instance.getSecretRef())
             .environment(instance.getEnvironment())

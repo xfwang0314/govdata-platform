@@ -1,13 +1,21 @@
 package com.xfwang.govdata.datasource.infrastructure.connector;
 
 import com.xfwang.govdata.datasource.domain.connector.ConnectorDescriptor;
+import com.xfwang.govdata.datasource.domain.connector.ConnectorAuthProfile;
+import com.xfwang.govdata.datasource.domain.connector.ConnectorFieldDescriptor;
+import com.xfwang.govdata.datasource.domain.connector.ConnectorPreviewDescriptor;
 import com.xfwang.govdata.datasource.infrastructure.connector.clickhouse.ClickHouseConnectionTester;
-import com.xfwang.govdata.datasource.infrastructure.connector.doris.DorisConnectionTester;
+import com.xfwang.govdata.datasource.infrastructure.connector.http.HttpApiConnectionTester;
+import com.xfwang.govdata.datasource.infrastructure.connector.http.HttpApiEndpointValidator;
+import com.xfwang.govdata.datasource.infrastructure.connector.http.HttpTargetPolicy;
 import com.xfwang.govdata.datasource.infrastructure.connector.mysql.MySqlConnectionTester;
 import com.xfwang.govdata.datasource.infrastructure.connector.oracle.OracleConnectionTester;
+import com.xfwang.govdata.datasource.infrastructure.connector.postgresql.PostgreSqlConnectionTester;
 import com.xfwang.govdata.datasource.infrastructure.connector.redis.RedisConnectionTester;
 import com.xfwang.govdata.datasource.infrastructure.connector.sftp.SftpConnectionTester;
+import com.xfwang.govdata.datasource.infrastructure.connector.sftp.SftpEndpointValidator;
 import com.xfwang.platform.api.secret.SecretProvider;
+import com.xfwang.platform.api.secret.SecretType;
 import org.dromara.common.core.exception.ServiceException;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -22,69 +30,138 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("dev")
 class ConnectorCatalogTest {
 
-    private final List<ConnectorDescriptorProvider> providers = providers();
-    private final ConnectorCatalog catalog = new ConnectorCatalog(providers);
+    private final HttpTargetPolicy httpTargetPolicy = new HttpTargetPolicy();
+    private final ConnectorCatalog catalog = new ConnectorCatalog(providers(httpTargetPolicy),
+        List.of(new HttpApiEndpointValidator(httpTargetPolicy), new SftpEndpointValidator()));
 
     @Test
-    void exposesExactlyTheSixFirstVersionConnectors() {
-        assertThat(catalog.list())
-            .extracting(ConnectorDescriptor::getConnectorCode)
-            .containsExactly("clickhouse", "doris", "mysql", "oracle", "redis", "sftp");
-        assertThat(catalog.list())
-            .allSatisfy(descriptor -> {
-                assertThat(descriptor.getConnectorVersion()).isEqualTo("1.0");
-                assertThat(descriptor.getCapabilities()).contains("CONNECTION_TEST");
-                assertThat(descriptor.getSecretKeys()).contains("username", "password");
+    void exposesFirstVersionConnectors() {
+        assertThat(catalog.list()).extracting(ConnectorDescriptor::getConnectorCode)
+            .containsExactly("clickhouse", "http-api", "mysql", "oracle", "postgresql", "redis", "sftp");
+        assertThat(catalog.list()).allSatisfy(descriptor -> {
+            assertThat(descriptor.getConnectorVersion()).isEqualTo("1.0");
+            assertThat(descriptor.getCapabilities()).contains("CONNECTION_TEST");
+            assertThat(descriptor.getAuthProfiles()).isNotEmpty().allSatisfy(profile -> {
+                assertThat(profile.getProfileCode()).isNotBlank();
+                if (!"NONE".equals(profile.getProfileCode())) {
+                    assertThat(profile.getSecretType()).isNotNull();
+                }
             });
+        });
     }
 
     @Test
-    void appliesConnectorDefaultsForPageSubmittedConfiguration() {
-        Map<String, Object> mysql = endpoint("host", "127.0.0.1", "database", "demo");
-        Map<String, Object> oracle = endpoint("host", "127.0.0.1", "serviceName", "ORCL");
-        Map<String, Object> redis = endpoint("host", "127.0.0.1");
-        Map<String, Object> sftp = endpoint("host", "127.0.0.1", "basePath", "/data",
-            "hostKeySha256", "SHA256:test");
-        Map<String, Object> doris = endpoint("host", "127.0.0.1", "database", "demo");
-        Map<String, Object> clickhouse = endpoint("host", "127.0.0.1", "database", "default");
+    void generatesConnectionTargetFromValidatedBasicFields() {
+        Map<String, Object> endpoint = new HashMap<>();
+        endpoint.put("host", "127.0.0.1");
+        endpoint.put("port", 3306);
+        endpoint.put("database", "demo");
+        endpoint.put("properties", Map.of("connectTimeout", "5000"));
 
-        catalog.validate("mysql", mysql);
-        catalog.validate("oracle", oracle);
-        catalog.validate("redis", redis);
-        catalog.validate("sftp", sftp);
-        catalog.validate("doris", doris);
-        catalog.validate("clickhouse", clickhouse);
+        catalog.validate("mysql", "PASSWORD", "DEV", endpoint);
 
-        assertThat(mysql).containsEntry("port", 3306).containsEntry("sslMode", "PREFERRED");
-        assertThat(oracle).containsEntry("port", 1521);
-        assertThat(redis).containsEntry("port", 6379).containsEntry("database", 0);
-        assertThat(sftp).containsEntry("port", 22);
-        assertThat(doris).containsEntry("port", 9030);
-        assertThat(clickhouse).containsEntry("port", 8123).containsEntry("ssl", false);
+        assertThat(endpoint).containsEntry("connectionTarget", "jdbc:mysql://127.0.0.1:3306/demo")
+            .doesNotContainKey("jdbcUrl");
     }
 
     @Test
-    void rejectsUnregisteredConfigurationInsteadOfAcceptingArbitraryUrls() {
-        Map<String, Object> endpoint = endpoint("host", "127.0.0.1", "database", "demo",
-            "jdbcUrl", "jdbc:mysql://untrusted");
+    void supportsNonJdbcConnectionPreviewWithoutJdbcSpecificContract() {
+        ConnectorDescriptorProvider sftp = () -> ConnectorDescriptor.builder()
+            .connectorCode("sftp").connectorName("SFTP").connectorVersion("1.0")
+            .category("FILE_TRANSFER")
+            .connectionPreview(ConnectorPreviewDescriptor.builder()
+                .label("连接地址").template("sftp://{host}:{port}/{rootPath}").build())
+            .endpointFields(List.of(
+                ConnectorFieldDescriptor.builder().code("host").label("主机地址")
+                    .valueType("STRING").required(true).build(),
+                ConnectorFieldDescriptor.builder().code("port").label("端口")
+                    .valueType("INTEGER").required(true).defaultValue(22).build(),
+                ConnectorFieldDescriptor.builder().code("rootPath").label("根目录")
+                    .valueType("STRING").required(true).build()))
+            .authProfiles(List.of(ConnectorAuthProfile.builder().profileCode("PASSWORD")
+                .profileName("用户名和密码").secretType(SecretType.USERNAME_PASSWORD).build()))
+            .build();
+        ConnectorCatalog nonJdbcCatalog = new ConnectorCatalog(List.of(sftp), List.of());
+        Map<String, Object> endpoint = new HashMap<>(Map.of(
+            "host", "sftp.local", "port", 22, "rootPath", "exchange"));
 
-        assertThatThrownBy(() -> catalog.validate("mysql", endpoint))
-            .isInstanceOf(ServiceException.class)
-            .hasMessageContaining("未注册配置项");
+        nonJdbcCatalog.validate("sftp", "PASSWORD", "DEV", endpoint);
+
+        assertThat(endpoint).containsEntry("connectionTarget", "sftp://sftp.local:22/exchange");
     }
 
-    private static List<ConnectorDescriptorProvider> providers() {
+    @Test
+    void acceptsRedisZeroDatabaseUsingConnectorNumericConstraints() {
+        Map<String, Object> endpoint = new HashMap<>(Map.of(
+            "protocol", "redis", "host", "127.0.0.1", "port", 6379, "database", 0));
+
+        catalog.validate("redis", "ACL_PASSWORD", "DEV", endpoint);
+
+        assertThat(endpoint).containsEntry("connectionTarget", "redis://127.0.0.1:6379/0");
+
+        Map<String, Object> unsupportedProperties = new HashMap<>(Map.of(
+            "protocol", "redis", "host", "127.0.0.1", "port", 6379, "database", 0,
+            "properties", Map.of("socketTimeout", "5000")));
+        assertThatThrownBy(() -> catalog.validate("redis", "ACL_PASSWORD", "DEV", unsupportedProperties))
+            .isInstanceOf(ServiceException.class).hasMessageContaining("不支持自定义连接属性");
+    }
+
+    @Test
+    void rejectsClientSubmittedConnectionTargetsAndSensitiveProperties() {
+        assertThatThrownBy(() -> catalog.validate("mysql", "PASSWORD", "DEV",
+            new HashMap<>(Map.of("connectionTarget", "jdbc:mysql://db/demo"))))
+            .isInstanceOf(ServiceException.class).hasMessageContaining("不可提交");
+        assertThatThrownBy(() -> catalog.validate("mysql", "PASSWORD", "DEV",
+            new HashMap<>(Map.of("jdbcUrl", "jdbc:mysql://db/demo?user=root&password=test"))))
+            .isInstanceOf(ServiceException.class).hasMessageContaining("不可提交");
+        assertThatThrownBy(() -> catalog.validate("mysql", "PASSWORD", "DEV", new HashMap<>(Map.of(
+            "host", "db.local", "port", 3306, "database", "demo",
+            "properties", Map.of("password", "test")))))
+            .isInstanceOf(ServiceException.class).hasMessageContaining("敏感字段");
+    }
+
+    @Test
+    void validatesHttpConditionalAuthenticationFields() {
+        Map<String, Object> none = new HashMap<>(Map.of(
+            "baseUrl", "http://api.example.test", "healthCheckPath", "/health",
+            "healthCheckMethod", "GET", "connectTimeoutSeconds", 5, "readTimeoutSeconds", 10));
+        catalog.validate("http-api", "NONE", "DEV", none);
+        assertThat(none).containsEntry("connectionTarget", "http://api.example.test");
+
+        Map<String, Object> oauth2 = new HashMap<>(none);
+        oauth2.remove("connectionTarget");
+        oauth2.put("baseUrl", "https://api.example.test");
+        oauth2.put("tokenEndpoint", "https://auth.example.test/oauth/token");
+        catalog.validate("http-api", "OAUTH2_CLIENT_CREDENTIALS", "PROD", oauth2);
+
+        assertThatThrownBy(() -> catalog.validate("http-api", "NONE", "DEV",
+            new HashMap<>(Map.of("baseUrl", "file:///etc/passwd", "healthCheckPath", "/",
+                "healthCheckMethod", "GET", "connectTimeoutSeconds", 5, "readTimeoutSeconds", 10))))
+            .isInstanceOf(ServiceException.class).hasMessageContaining("Base URL");
+    }
+
+    @Test
+    void validatesSftpAbsoluteRootAndFingerprint() {
+        Map<String, Object> endpoint = new HashMap<>(Map.of(
+            "host", "sftp.example.test", "port", 22, "rootPath", "/exchange",
+            "charset", "UTF-8", "connectTimeoutSeconds", 10,
+            "hostKeyFingerprint", "SHA256:abcdefghijklmnopqrstuvxyz0123456789ABCDEFG"));
+
+        catalog.validate("sftp", "PASSWORD", "PROD", endpoint);
+
+        assertThat(endpoint).containsEntry("connectionTarget", "sftp://sftp.example.test:22/exchange");
+    }
+
+    private static List<ConnectorDescriptorProvider> providers(HttpTargetPolicy policy) {
         List<SecretProvider> secrets = List.of();
-        return List.of(new ClickHouseConnectionTester(secrets), new DorisConnectionTester(secrets),
-            new MySqlConnectionTester(secrets), new OracleConnectionTester(secrets),
+        return List.of(new ClickHouseConnectionTester(secrets), new MySqlConnectionTester(secrets),
+            new HttpApiConnectionTester(secrets, new com.xfwang.govdata.datasource.infrastructure.connector.http.AccessTokenProvider() {
+                @Override public com.xfwang.govdata.datasource.infrastructure.connector.http.OAuth2AccessToken acquire(
+                    com.xfwang.govdata.datasource.infrastructure.connector.http.OAuth2TokenRequest request) { return null; }
+                @Override public com.xfwang.govdata.datasource.infrastructure.connector.http.OAuth2AccessToken refresh(
+                    com.xfwang.govdata.datasource.infrastructure.connector.http.OAuth2TokenRequest request) { return null; }
+            }, policy),
+            new OracleConnectionTester(secrets), new PostgreSqlConnectionTester(secrets),
             new RedisConnectionTester(secrets), new SftpConnectionTester(secrets));
-    }
-
-    private static Map<String, Object> endpoint(Object... values) {
-        Map<String, Object> result = new HashMap<>();
-        for (int index = 0; index < values.length; index += 2) {
-            result.put(values[index].toString(), values[index + 1]);
-        }
-        return result;
     }
 }
