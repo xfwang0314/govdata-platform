@@ -211,6 +211,14 @@ public class SecretAccessService implements SecretProvider, SecretCatalog {
     private void audit(PlatformSecret secret, SecretResolveRequest request, String result, String reason) {
         if (request == null) return;
         PlatformSecretAccessLog log = new PlatformSecretAccessLog();
+        String tenantId = request.getTenantId();
+        if (StringUtils.isBlank(tenantId) && secret != null) {
+            tenantId = secret.getTenantId();
+        }
+        if (StringUtils.isBlank(tenantId)) {
+            tenantId = TenantHelper.getTenantId();
+        }
+        log.setTenantId(tenantId);
         log.setSecretId(secret == null ? null : secret.getSecretId());
         log.setSecretRefSnapshot(request.getSecretRef());
         log.setCallerModule(request.getCallerModule());
