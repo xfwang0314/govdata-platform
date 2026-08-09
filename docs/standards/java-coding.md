@@ -67,9 +67,33 @@
 
 - 会改变业务分支、数据库约束、授权判断或状态机的封闭值必须使用 Java 枚举稳定 code、服务端校验和
   MySQL CHECK 共同约束，不以可编辑 `sys_dict` 作为事实来源。
+- 枚举归属其业务领域；跨模块确实共享且封闭的契约值才放入 `platform-api` 或 `govdata-api`，禁止为了“集中”
+  把领域枚举搬入公共模块。
+- Connector、SPI、外部协议等开放集合的编码由对应 Adapter/Catalog 管理，不建立会阻止第三方扩展的全局枚举。
+- 仅在单个类使用的技术默认值、配置键和阈值使用本类 `private static final`；不得建立汇集无关编码的
+  `Constants`、`CommonConstants` 等“大而全”常量类。
+- 原因码、状态码等同时需要机器判断和用户展示的值使用包含稳定 code 与中文 label/message 的枚举，
+  通过 options 接口返回；前端展示中文并可保留 code 用于诊断，不自行维护第二份映射。
 - 前端通过 options Interface 获取固定选项，通过 Catalog Interface 获取 Connector 等动态选项。
 - 前端不得自由输入或硬编码 Connector 版本、状态、密级等系统编码。
 - `sys_dict` 只用于允许管理员调整的展示型字典；稳定 code 不可复用。
+- 凭据字段、Connector 字段和认证方式等可扩展表单必须由后端 Schema 驱动；前端只能识别通用控件类型，
+  不得按具体凭据类型或 Connector 编码复制字段清单。
+- Connector 通用必填、长度和类型约束由 Catalog 统一执行；协议特有的组合约束实现独立 Validator SPI，
+  禁止在 ApplicationService 中增加产品 `switch`。
+
+### 跨模块稳定值与贡献式目录
+
+- 两个以上模块必须以相同语义判断同一个封闭值时，该值属于跨模块稳定契约，必须在依赖方向下方的
+  `platform-api` 或 `govdata-api` 定义类型；实现模块不得复制同名字符串，也不得为了复用而依赖另一个实现模块。
+- 跨模块类型优先使用包含稳定 `code`、中文 `label` 和必要不变量的枚举或值对象。例如凭据类型及其最小必需字段
+  由 `platform-api` 的 `SecretType` 唯一定义，持久化和 JSON 仍使用稳定 code，禁止使用 ordinal。
+- 业务用途、资源动作、Connector 等会随业务模块增加的开放集合由拥有该语义的业务模块定义，禁止放入平台全局枚举。
+- 当平台模块需要聚合开放集合用于页面选项或运行时校验时，平台契约模块定义 Contributor Interface 和只读定义对象，
+  各业务实现模块提供 Adapter；平台实现模块只聚合、校验并快照贡献结果，不硬编码任何政务业务模块编码。
+- Contributor 必须使用 Spring 构造器集合注入，启动时校验模块编码和条目编码唯一性；页面 options 和运行时校验必须读取
+  同一份不可变目录。新增业务模块或用途时只新增所属模块的枚举/定义、Contributor Adapter 和测试。
+- 不得通过反射、包扫描字符串或可编辑 `sys_dict` 自动发现稳定业务用途；不得为一个开放集合建立不断膨胀的 `Constants`。
 
 ## 可测试性与日志
 

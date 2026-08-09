@@ -13,6 +13,11 @@
 - [ ] 已先定义 Command、Query、View 或跨模块稳定契约，再实现 Controller。
 - [ ] 创建与修改规则不同的用例没有复用万能可空 Command。
 - [ ] 已同步设计 SQL、`domain.entity` 和稳定枚举；Entity 未进入接口或事件。
+- [ ] 封闭业务值使用所属领域枚举并由 options 暴露；开放 SPI 编码留在 Adapter/Catalog；未新增“大而全”常量类。
+- [ ] 跨模块同语义封闭值已提升为 API 契约类型，调用方没有复制字符串，也没有依赖其他实现模块。
+- [ ] 平台需要聚合业务模块开放用途时使用 Contributor Interface；编码由业务模块拥有，目录在启动时校验唯一性并快照。
+- [ ] 可扩展表单由后端 Schema 暴露；协议特有组合约束由独立 Validator 实现，未在统一服务中堆叠产品分支。
+- [ ] 外部 HTTP/SFTP 连接已限制协议、重定向、目标地址和超时，并验证 TLS 或 SSH 主机身份；响应与日志无敏感值。
 - [ ] ApplicationService 按相关用例组拆分，没有模块总管类或无意义透传接口。
 - [ ] Entity 自身不变量、跨对象纯规则和 Application 编排职责清晰。
 - [ ] 普通 CRUD 直接使用本模块 Mapper；只有真实复杂存储才创建 Repository。
@@ -23,6 +28,7 @@
 ## 验证
 
 - [ ] 领域规则有纯单元测试，Application 用例有成功和失败路径测试。
+- [ ] 新增契约枚举验证 code/label/必需字段；新增 Contributor 验证模块编码、用途编码及重复注册失败路径。
 - [ ] 自定义 SQL、JSON、租户、乐观锁或复杂分页有 MySQL 8 集成测试。
 - [ ] 主要 HTTP 接口验证 `R<T>`、校验、权限、ErrorCode、traceId 和序列化。
 - [ ] 已执行目标模块测试、ArchUnit、Maven Enforcer 和必要集成测试。
