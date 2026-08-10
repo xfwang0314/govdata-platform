@@ -27,6 +27,7 @@ public class DataSourceInstance extends TenantEntity {
     private String datasourceName;
     private String connectorCode;
     private String connectorVersion;
+    private String authProfileCode;
     private String endpointConfigJson;
     private String secretRef;
     private String environment;

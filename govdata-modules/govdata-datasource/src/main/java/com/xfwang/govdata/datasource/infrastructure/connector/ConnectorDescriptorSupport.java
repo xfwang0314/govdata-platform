@@ -6,8 +6,11 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Set;
 
-/** Connector 描述构造辅助，避免各 Adapter 重复页面字段约定。 */
+/**
+ * Connector 描述构造辅助，避免各 Adapter 重复页面字段约定。
+ */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class ConnectorDescriptorSupport {
 
@@ -17,8 +20,13 @@ public final class ConnectorDescriptorSupport {
     }
 
     public static ConnectorFieldDescriptor integerField(String code, String label, boolean required, int defaultValue) {
+        return integerField(code, label, required, defaultValue, 1, 65535);
+    }
+
+    public static ConnectorFieldDescriptor integerField(String code, String label, boolean required, int defaultValue,
+                                                        int minValue, int maxValue) {
         return ConnectorFieldDescriptor.builder().code(code).label(label).valueType("INTEGER")
-            .required(required).defaultValue(defaultValue).build();
+            .required(required).defaultValue(defaultValue).minValue(minValue).maxValue(maxValue).build();
     }
 
     public static ConnectorFieldDescriptor booleanField(String code, String label, boolean defaultValue, String description) {
@@ -27,8 +35,14 @@ public final class ConnectorDescriptorSupport {
     }
 
     public static ConnectorFieldDescriptor choiceField(String code, String label, String defaultValue,
-                                                   List<String> options) {
+                                                       List<String> options) {
         return ConnectorFieldDescriptor.builder().code(code).label(label).valueType("ENUM")
             .defaultValue(defaultValue).options(options).build();
+    }
+
+    public static ConnectorFieldDescriptor authTextField(String code, String label, boolean required,
+                                                         String description, String... authProfileCodes) {
+        return ConnectorFieldDescriptor.builder().code(code).label(label).valueType("STRING")
+            .required(required).description(description).authProfileCodes(Set.of(authProfileCodes)).build();
     }
 }

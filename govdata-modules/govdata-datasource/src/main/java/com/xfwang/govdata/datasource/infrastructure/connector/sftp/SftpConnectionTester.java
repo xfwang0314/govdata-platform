@@ -1,105 +1,213 @@
 package com.xfwang.govdata.datasource.infrastructure.connector.sftp;
 
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTestRequest;
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTestResult;
-import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTester;
+import com.xfwang.govdata.datasource.domain.connector.ConnectorAuthProfile;
 import com.xfwang.govdata.datasource.domain.connector.ConnectorDescriptor;
+import com.xfwang.govdata.datasource.domain.connector.ConnectorPreviewDescriptor;
+import com.xfwang.govdata.datasource.domain.enums.ConnectionTestReason;
+import com.xfwang.govdata.datasource.infrastructure.connector.AbstractConnectionTester;
 import com.xfwang.govdata.datasource.infrastructure.connector.ConnectorDescriptorProvider;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestRequest;
+import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestResult;
+import com.xfwang.govdata.datasource.infrastructure.connector.support.ConnectionFailureClassifier;
 import com.xfwang.platform.api.secret.SecretProvider;
+import com.xfwang.platform.api.secret.SecretType;
 import com.xfwang.platform.api.secret.SecretValue;
 import org.apache.sshd.client.SshClient;
+import org.apache.sshd.client.auth.password.PasswordIdentityProvider;
 import org.apache.sshd.client.session.ClientSession;
+import org.apache.sshd.common.NamedResource;
+import org.apache.sshd.common.config.keys.FilePasswordProvider;
 import org.apache.sshd.common.config.keys.KeyUtils;
+import org.apache.sshd.common.keyprovider.KeyIdentityProvider;
+import org.apache.sshd.common.util.security.SecurityUtils;
 import org.apache.sshd.sftp.client.SftpClient;
 import org.apache.sshd.sftp.client.SftpClientFactory;
 import org.springframework.stereotype.Component;
 
-import java.net.SocketAddress;
-import java.security.PublicKey;
+import java.io.ByteArrayInputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.xfwang.govdata.datasource.infrastructure.connector.ConnectorDescriptorSupport.*;
+import static com.xfwang.govdata.datasource.infrastructure.connector.ConnectorDescriptorSupport.choiceField;
+import static com.xfwang.govdata.datasource.infrastructure.connector.ConnectorDescriptorSupport.integerField;
+import static com.xfwang.govdata.datasource.infrastructure.connector.ConnectorDescriptorSupport.textField;
 
-/** SFTP 密码认证与主机密钥指纹校验 Connector。 */
+/**
+ * SFTP 密码或 SSH 私钥认证连通测试 Connector。
+ *
+ * <p>继承自 {@link AbstractConnectionTester}，使用 Apache MINA SSHD 客户端建立 SSH 连接并验证远程根目录可访问性。</p>
+ */
 @Component
-public class SftpConnectionTester implements ConnectionTester, ConnectorDescriptorProvider {
+public class SftpConnectionTester extends AbstractConnectionTester implements ConnectorDescriptorProvider {
 
-    private static final Pattern HOST = Pattern.compile("^[a-zA-Z0-9._-]{1,253}$");
-    private final List<SecretProvider> secretProviders;
-
-    public SftpConnectionTester(List<SecretProvider> secretProviders) { this.secretProviders = secretProviders; }
-    @Override public boolean supports(String code, String version) {
-        return "sftp".equalsIgnoreCase(code) && "1.0".equals(version);
+    /**
+     * 构造函数，注入凭据解析服务。
+     *
+     * @param secretProviders 凭据解析提供者列表
+     */
+    public SftpConnectionTester(List<SecretProvider> secretProviders) {
+        super(secretProviders);
     }
 
-    @Override public ConnectionTestResult test(ConnectionTestRequest request) {
-        String host = value(request, "host");
-        int port = integer(request, "port");
-        String basePath = value(request, "basePath");
-        String expectedFingerprint = value(request, "hostKeySha256");
-        if (!HOST.matcher(host).matches() || port < 1 || port > 65535 || !basePath.startsWith("/")
-            || !expectedFingerprint.startsWith("SHA256:")) {
-            return failed("ENDPOINT_INVALID", "host、port、basePath 或主机密钥指纹配置无效", 0);
-        }
-        Optional<SecretValue> resolved = secretProviders.stream()
-            .map(provider -> provider.resolve(request.secretRequest(Set.of("username", "password"))))
-            .flatMap(Optional::stream).findFirst();
-        if (resolved.isEmpty()) {
-            return failed("SECRET_UNAVAILABLE", "SecretRef 无法解析", 0);
-        }
+    @Override
+    protected String connectorCode() {
+        return "sftp";
+    }
+
+    @Override
+    protected String connectorVersion() {
+        return "1.0";
+    }
+
+    /**
+     * 执行 SFTP 连通与目录访问测试。
+     *
+     * @param request 连通测试请求
+     * @return 连通测试结果
+     */
+    @Override
+    public ConnectionTestResult test(ConnectionTestRequest request) {
         long started = System.nanoTime();
-        SshClient client = SshClient.setUpDefaultClient();
-        client.setServerKeyVerifier((ClientSession session, SocketAddress address, PublicKey key) ->
-            expectedFingerprint.equals(KeyUtils.getFingerPrint(key)));
-        client.start();
-        try (SecretValue secret = resolved.orElseThrow()) {
-            char[] username = secret.get("username");
-            char[] password = secret.get("password");
-            if (username == null || password == null) {
-                return failed("SECRET_FIELDS_MISSING", "凭据缺少 username 或 password", elapsed(started));
-            }
-            try (ClientSession session = client.connect(new String(username), host, port)
-                    .verify(Duration.ofSeconds(5)).getSession()) {
-                session.addPasswordIdentity(new String(password));
-                session.auth().verify(Duration.ofSeconds(5));
+        boolean privateKey = "PRIVATE_KEY".equals(request.getAuthProfileCode());
+        SecretType type = privateKey ? SecretType.SSH_PRIVATE_KEY : SecretType.USERNAME_PASSWORD;
+        Optional<SecretValue> resolved = resolveSecret(request, type, type.requiredKeys());
+        if (resolved.isEmpty()) {
+            return failed(ConnectionTestReason.SECRET_UNAVAILABLE, null, elapsed(started));
+        }
+        AtomicBoolean hostKeyMismatch = new AtomicBoolean(false);
+        try (SecretValue secret = resolved.orElseThrow(); SshClient client = SshClient.setUpDefaultClient()) {
+            client.setKeyIdentityProvider(KeyIdentityProvider.EMPTY_KEYS_PROVIDER);
+            client.setPasswordIdentityProvider(PasswordIdentityProvider.EMPTY_PASSWORDS_PROVIDER);
+            String expectedFingerprint = text(request, "hostKeyFingerprint");
+            client.setServerKeyVerifier((session, remoteAddress, serverKey) -> {
+                boolean matches = KeyUtils.checkFingerPrint(expectedFingerprint, serverKey).getKey();
+                hostKeyMismatch.set(!matches);
+                return matches;
+            });
+            client.start();
+            char[] username = required(secret, "username");
+            try (ClientSession session = client.connect(new String(username), text(request, "host"),
+                integer(request, "port")).verify(Duration.ofSeconds(integer(request, "connectTimeoutSeconds")))
+                .getSession()) {
+                if (privateKey) {
+                    addPrivateKeys(session, secret);
+                } else {
+                    char[] password = required(secret, "password");
+                    try {
+                        session.addPasswordIdentity(new String(password));
+                    } finally {
+                        Arrays.fill(password, '\0');
+                    }
+                }
+                session.auth().verify(Duration.ofSeconds(integer(request, "connectTimeoutSeconds")));
                 try (SftpClient sftp = SftpClientFactory.instance().createSftpClient(session)) {
-                    SftpClient.Attributes attributes = sftp.stat(basePath);
-                    return ConnectionTestResult.builder().success(true).reasonCode("CONNECTED").message("连接成功")
-                        .latencyMs(elapsed(started)).serverInfo(Map.of(
-                            "protocol", "SFTP", "basePathExists", true, "directory", attributes.isDirectory()))
+                    sftp.setNameDecodingCharset(Charset.forName(text(request, "charset")));
+                    String rootPath = text(request, "rootPath");
+                    try (SftpClient.CloseableHandle handle = sftp.openDir(rootPath)) {
+                        sftp.readDir(handle);
+                    } catch (Exception exception) {
+                        return failed(ConnectionTestReason.REMOTE_PATH_UNAVAILABLE, null, elapsed(started));
+                    }
+                    return ConnectionTestResult.builder()
+                        .success(true)
+                        .reasonCode(ConnectionTestReason.CONNECTED.code())
+                        .message(ConnectionTestReason.CONNECTED.message())
+                        .latencyMs(elapsed(started))
+                        .serverInfo(Map.of("protocol", "SFTP", "sftpVersion", sftp.getVersion()))
                         .build();
                 }
+            } finally {
+                Arrays.fill(username, '\0');
             }
-        } catch (Exception ignored) {
-            return failed("CONNECTION_FAILED", "连接失败，请检查端点、主机指纹、凭据和目录", elapsed(started));
-        } finally {
-            client.stop();
+        } catch (Exception exception) {
+            ConnectionTestReason reason = hostKeyMismatch.get() ? ConnectionTestReason.SSH_HOST_KEY_MISMATCH
+                : ConnectionFailureClassifier.classify(exception);
+            return failed(reason, null, elapsed(started));
         }
     }
 
-    @Override public ConnectorDescriptor descriptor() {
-        return ConnectorDescriptor.builder().connectorCode("sftp").connectorName("SFTP")
-            .connectorVersion("1.0").category("FILE").secretType("USERNAME_PASSWORD").capabilities(Set.of("CONNECTION_TEST"))
-            .endpointFields(List.of(textField("host", "主机", true, "SFTP 服务地址"),
-                integerField("port", "端口", true, 22), textField("basePath", "根目录", true, "必须使用绝对路径"),
-                textField("hostKeySha256", "主机密钥 SHA256 指纹", true, "例如 SHA256:xxxx，禁止跳过校验")))
-            .secretKeys(List.of("username", "password")).build();
+    /**
+     * 将 SSH 私钥及可选的 Passphrase 注入 SSH 会话。
+     */
+    private void addPrivateKeys(ClientSession session, SecretValue secret) throws Exception {
+        char[] privateKey = required(secret, "privateKey");
+        char[] passphrase = secret.get("passphrase");
+        try (ByteArrayInputStream input = new ByteArrayInputStream(new String(privateKey)
+            .getBytes(StandardCharsets.UTF_8))) {
+            FilePasswordProvider passwords = passphrase == null
+                ? FilePasswordProvider.EMPTY : FilePasswordProvider.of(new String(passphrase));
+            Iterable<KeyPair> identities = SecurityUtils.loadKeyPairIdentities(null,
+                NamedResource.ofName("secret-private-key"), input, passwords);
+            int count = 0;
+            for (KeyPair identity : identities) {
+                session.addPublicKeyIdentity(identity);
+                count++;
+            }
+            if (count == 0) {
+                throw new IllegalArgumentException("private key unavailable");
+            }
+        } finally {
+            Arrays.fill(privateKey, '\0');
+            if (passphrase != null) {
+                Arrays.fill(passphrase, '\0');
+            }
+        }
     }
 
-    private String value(ConnectionTestRequest request, String key) {
-        Object value = request.getEndpointConfig().get(key);
-        return value == null ? "" : value.toString().trim();
+    /**
+     * 校验必填字段是否存在。
+     */
+    private char[] required(SecretValue secret, String key) {
+        char[] value = secret.get(key);
+        if (value == null || value.length == 0) {
+            throw new IllegalArgumentException("secret field unavailable");
+        }
+        return value;
     }
-    private int integer(ConnectionTestRequest request, String key) {
-        try { return Integer.parseInt(value(request, key)); } catch (NumberFormatException ignored) { return -1; }
-    }
-    private long elapsed(long started) { return (System.nanoTime() - started) / 1_000_000; }
-    private ConnectionTestResult failed(String code, String message, long latency) {
-        return ConnectionTestResult.builder().success(false).reasonCode(code).message(message).latencyMs(latency).build();
+
+    /**
+     * 提供 SFTP Connector 元数据描述符。
+     *
+     * @return Connector 描述符
+     */
+    @Override
+    public ConnectorDescriptor descriptor() {
+        return ConnectorDescriptor.builder()
+            .connectorCode("sftp")
+            .connectorName("SFTP")
+            .connectorVersion("1.0")
+            .category("FILE_SYSTEM")
+            .capabilities(Set.of("CONNECTION_TEST"))
+            .connectionPreview(ConnectorPreviewDescriptor.builder()
+                .label("SFTP 地址")
+                .template("sftp://{host}:{port}{rootPath}")
+                .build())
+            .endpointFields(List.of(
+                textField("host", "主机地址", true, "SFTP 服务器域名或 IP"),
+                integerField("port", "端口", true, 22),
+                textField("rootPath", "根目录", true, "允许访问的远程绝对路径"),
+                choiceField("charset", "文件名字符集", "UTF-8", List.of("UTF-8", "GBK")),
+                integerField("connectTimeoutSeconds", "连接超时（秒）", true, 10, 1, 60),
+                textField("hostKeyFingerprint", "主机指纹", true, "服务端 SSH Host Key 的 SHA256 指纹")))
+            .authProfiles(List.of(
+                ConnectorAuthProfile.builder()
+                    .profileCode("PASSWORD")
+                    .profileName("用户名和密码")
+                    .secretType(SecretType.USERNAME_PASSWORD)
+                    .build(),
+                ConnectorAuthProfile.builder()
+                    .profileCode("PRIVATE_KEY")
+                    .profileName("SSH 私钥")
+                    .secretType(SecretType.SSH_PRIVATE_KEY)
+                    .build()))
+            .build();
     }
 }

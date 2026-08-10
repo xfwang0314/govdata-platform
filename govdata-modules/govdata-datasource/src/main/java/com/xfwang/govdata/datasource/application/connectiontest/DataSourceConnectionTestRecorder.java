@@ -14,6 +14,11 @@ import org.dromara.common.tenant.helper.TenantHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 数据源连通测试日志记录应用服务。
+ *
+ * <p>负责持久化测试历史记录并同步更新数据源主表 {@link DataSourceInstance} 的最近测试状态与时间。</p>
+ */
 @Service
 @RequiredArgsConstructor
 public class DataSourceConnectionTestRecorder {
@@ -21,41 +26,48 @@ public class DataSourceConnectionTestRecorder {
     private final DataSourceInstanceMapper instanceMapper;
     private final DataSourceConnectionTestMapper testMapper;
 
+    /**
+     * 记录连通测试结果并更新数据源测试状态。
+     *
+     * @param command 连通测试记录命令
+     * @return 连通测试结果视图
+     * @throws ServiceException 如果数据源不存在
+     */
     @Transactional(rollbackFor = Exception.class)
     public ConnectionTestView record(ConnectionTestRecordCommand command) {
-        DataSourceInstance instance = instanceMapper.selectById(command.getDatasourceId());
+        DataSourceInstance instance = instanceMapper.selectById(command.datasourceId());
         if (instance == null) {
             throw new ServiceException(DataSourceErrorCode.NOT_FOUND);
         }
 
         DataSourceConnectionTest record = new DataSourceConnectionTest();
         record.setTenantId(TenantHelper.getTenantId());
-        record.setDatasourceId(command.getDatasourceId());
-        record.setConnectorCode(command.getConnectorCode());
-        record.setConnectorVersion(command.getConnectorVersion());
-        record.setResult(command.getResult());
-        record.setReasonCode(command.getReasonCode());
-        record.setLatencyMs(command.getLatencyMs());
-        record.setServerInfoJson(JsonUtils.toJsonString(command.getServerInfo()));
-        record.setActorType(command.getActorType());
-        record.setActorId(command.getActorId());
-        record.setTraceId(command.getTraceId());
-        record.setOccurredTime(command.getOccurredTime());
+        record.setDatasourceId(command.datasourceId());
+        record.setConnectorCode(command.connectorCode());
+        record.setConnectorVersion(command.connectorVersion());
+        record.setResult(command.result());
+        record.setReasonCode(command.reasonCode());
+        record.setLatencyMs(Math.max(0L, command.latencyMs()));
+        record.setServerInfoJson(JsonUtils.toJsonString(command.serverInfo()));
+        record.setActorType(command.actorType());
+        record.setActorId(command.actorId());
+        record.setTraceId(command.traceId());
+        record.setOccurredTime(command.occurredTime());
         testMapper.insert(record);
 
-        instance.setLastTestStatus(command.getResult());
-        instance.setLastTestTime(command.getOccurredTime());
+        instance.setLastTestStatus(command.result());
+        instance.setLastTestTime(command.occurredTime());
         instanceMapper.updateById(instance);
 
         return ConnectionTestView.builder()
             .testId(record.getTestId())
-            .datasourceId(command.getDatasourceId())
-            .result(command.getResult())
-            .reasonCode(command.getReasonCode())
-            .message(command.getMessage())
-            .latencyMs(command.getLatencyMs())
-            .serverInfo(command.getServerInfo())
-            .occurredTime(command.getOccurredTime())
+            .datasourceId(command.datasourceId())
+            .result(command.result())
+            .reasonCode(command.reasonCode())
+            .message(command.message())
+            .latencyMs(command.latencyMs())
+            .serverInfo(command.serverInfo())
+            .occurredTime(command.occurredTime())
             .build();
     }
 }

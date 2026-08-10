@@ -1,13 +1,16 @@
-package com.xfwang.govdata.datasource.infrastructure.connector;
+package com.xfwang.govdata.datasource.infrastructure.connector.registry;
 
 import com.xfwang.govdata.datasource.domain.exception.DataSourceErrorCode;
+import com.xfwang.govdata.datasource.infrastructure.connector.ConnectionTester;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.exception.ServiceException;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/** 按声明能力选择 Connector，避免产品类型 switch。 */
+/**
+ * ConnectionTester 策略注册表。
+ */
 @Component
 @RequiredArgsConstructor
 public class ConnectionTesterRegistry {
@@ -19,6 +22,6 @@ public class ConnectionTesterRegistry {
             .filter(tester -> tester.supports(connectorCode, connectorVersion))
             .findFirst()
             .orElseThrow(() -> new ServiceException(DataSourceErrorCode.CONNECTOR_UNAVAILABLE,
-                "Connector 不支持连接测试: " + connectorCode + "@" + connectorVersion));
+                "没有可用的 ConnectionTester: " + connectorCode + "@" + connectorVersion));
     }
 }

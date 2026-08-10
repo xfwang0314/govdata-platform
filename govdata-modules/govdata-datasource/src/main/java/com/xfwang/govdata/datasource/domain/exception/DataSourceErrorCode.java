@@ -1,12 +1,8 @@
 package com.xfwang.govdata.datasource.domain.exception;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import org.dromara.common.core.exception.ErrorCode;
 
 /** 数据源模块稳定异常编码。 */
-@Getter
-@AllArgsConstructor
 public enum DataSourceErrorCode implements ErrorCode {
     NOT_FOUND("GOV-DS-0404", "数据源不存在", 404),
     CODE_DUPLICATE("GOV-DS-0409", "数据源编码已存在", 409),
@@ -17,4 +13,17 @@ public enum DataSourceErrorCode implements ErrorCode {
     private final String code;
     private final String message;
     private final int httpStatus;
+
+    DataSourceErrorCode(String code, String message, int httpStatus) {
+        this.code = code;
+        this.message = message;
+        this.httpStatus = httpStatus;
+    }
+
+    @Override
+    public String getCode() { return code; }
+    @Override
+    public String getMessage() { return message; }
+    @Override
+    public int getHttpStatus() { return httpStatus; }
 }

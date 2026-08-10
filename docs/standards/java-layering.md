@@ -110,6 +110,9 @@
 - 契约不暴露 MyBatis Page/Wrapper、Servlet、数据库连接和实现模块对象。
 - `platform-api` 禁止依赖 `govdata-api` 或任何实现模块。
 - `govdata-api` 可以依赖 `platform-api`，禁止依赖实现模块。
+- 跨模块共享的封闭枚举和值对象放契约模块；业务模块拥有的开放用途不得上移为全局枚举。
+- 平台实现需要发现各业务模块定义时，在契约模块声明 Contributor Interface，由业务模块的 infrastructure Adapter 实现；
+  平台实现只能依赖 Contributor Interface，不得硬编码或依赖业务实现模块。
 
 ## 自动检查
 
