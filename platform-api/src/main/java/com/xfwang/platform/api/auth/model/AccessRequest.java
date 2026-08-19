@@ -9,7 +9,7 @@ import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * Resource + Action 授权请求。
+ * ABAC 授权求值请求。
  */
 @Data
 @Builder
@@ -26,6 +26,12 @@ public class AccessRequest implements Serializable {
     private SubjectContext subject;
 
     private Long resourceId;
+
+    /**
+     * 不做授权投影的类型资源上下文。调用方必须从可信业务对象构造，不能直接接收客户端属性。
+     * 与 resourceId 必须且只能填写一个。
+     */
+    private ResourceDescriptor resource;
 
     /**
      * 可选的预期资源类型，用于防止调用方传错资源。

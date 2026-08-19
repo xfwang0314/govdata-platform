@@ -12,7 +12,7 @@ import org.dromara.common.encrypt.annotation.ApiEncrypt;
 import org.dromara.common.idempotent.annotation.RepeatSubmit;
 import org.dromara.common.log.annotation.Log;
 import org.dromara.common.log.enums.BusinessType;
-import org.dromara.common.mybatis.helper.DataPermissionHelper;
+import org.dromara.common.mybatis.helper.AbacDataScopeHelper;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.system.domain.bo.SysUserBo;
@@ -74,7 +74,7 @@ public class SysProfileController extends BaseController {
         if (StringUtils.isNotEmpty(user.getEmail()) && !userService.checkEmailUnique(user)) {
             return R.fail("修改用户'" + username + "'失败，邮箱账号已存在");
         }
-        int rows = DataPermissionHelper.ignore(() -> userService.updateUserProfile(user));
+        int rows = AbacDataScopeHelper.ignore(() -> userService.updateUserProfile(user));
         if (rows > 0) {
             return R.ok();
         }
@@ -99,7 +99,7 @@ public class SysProfileController extends BaseController {
         if (BCrypt.checkpw(bo.getNewPassword(), password)) {
             return R.fail("新密码不能与旧密码相同");
         }
-        int rows = DataPermissionHelper.ignore(() -> userService.resetUserPwd(user.getUserId(), BCrypt.hashpw(bo.getNewPassword())));
+        int rows = AbacDataScopeHelper.ignore(() -> userService.resetUserPwd(user.getUserId(), BCrypt.hashpw(bo.getNewPassword())));
         if (rows > 0) {
             return R.ok();
         }
@@ -122,7 +122,7 @@ public class SysProfileController extends BaseController {
             }
             SysOssVo oss = ossService.upload(avatarfile);
             String avatar = oss.getUrl();
-            boolean updateSuccess = DataPermissionHelper.ignore(() -> userService.updateUserAvatar(LoginHelper.getUserId(), oss.getOssId()));
+            boolean updateSuccess = AbacDataScopeHelper.ignore(() -> userService.updateUserAvatar(LoginHelper.getUserId(), oss.getOssId()));
             if (updateSuccess) {
                 return R.ok(new AvatarVo(avatar));
             }

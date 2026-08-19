@@ -3,8 +3,7 @@ package com.xfwang.platform.auth.application.decision;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.xfwang.platform.api.auth.enums.DecisionType;
 import com.xfwang.platform.api.auth.enums.GrantStatus;
-import com.xfwang.platform.api.auth.enums.PolicyEffect;
-import com.xfwang.platform.api.auth.enums.SubjectType;
+import com.xfwang.platform.api.auth.enums.PrincipalType;
 import com.xfwang.platform.api.auth.model.AccessDecision;
 import com.xfwang.platform.api.auth.model.AccessRequest;
 import com.xfwang.platform.api.auth.model.AuthorizationObligation;
@@ -14,26 +13,25 @@ import com.xfwang.platform.api.auth.model.SubjectContext;
 import com.xfwang.platform.api.auth.service.AuthorizationService;
 import com.xfwang.platform.api.auth.service.ResourceRegistry;
 import com.xfwang.platform.api.auth.service.SubjectProvider;
+import com.xfwang.platform.auth.application.catalog.AuthorizationCatalog;
 import com.xfwang.platform.auth.domain.entity.AuthzDecisionLog;
 import com.xfwang.platform.auth.domain.entity.AuthzGrant;
 import com.xfwang.platform.auth.domain.entity.AuthzGrantScope;
-import com.xfwang.platform.auth.domain.entity.AuthzPolicy;
-import com.xfwang.platform.auth.domain.entity.AuthzPolicyAction;
-import com.xfwang.platform.auth.domain.entity.AuthzPolicyResource;
-import com.xfwang.platform.auth.domain.entity.AuthzPolicySubject;
-import com.xfwang.platform.auth.domain.entity.AuthzPolicyVersion;
+import com.xfwang.platform.auth.domain.entity.AuthzPolicyRuntimeResource;
+import com.xfwang.platform.auth.domain.entity.AuthzPolicyRuntimeRule;
+import com.xfwang.platform.auth.domain.entity.AuthzPolicyRuntimeSubject;
 import com.xfwang.platform.auth.domain.entity.AuthzResource;
+import com.xfwang.platform.auth.domain.policy.PolicyConditionEvaluator;
+import com.xfwang.platform.auth.domain.policy.model.PolicyConditionGroup;
+import com.xfwang.platform.auth.domain.service.AdministratorAuthorizationPolicy;
+import com.xfwang.platform.auth.domain.service.SubjectSelectorMatcher;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzDecisionLogMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzGrantMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzGrantScopeMapper;
-import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyActionMapper;
-import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyMapper;
-import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyResourceMapper;
-import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicySubjectMapper;
-import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyVersionMapper;
+import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRuntimeResourceMapper;
+import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRuntimeRuleMapper;
+import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRuntimeSubjectMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzResourceMapper;
-import com.xfwang.platform.auth.domain.policy.PolicyConditionEvaluator;
-import com.xfwang.platform.auth.domain.policy.model.PolicyConditionGroup;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.exception.GlobalErrorCode;
@@ -45,18 +43,13 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-/**
- * 默认拒绝、明确拒绝优先的通用授权决策服务。
- */
+/** 默认拒绝、显式拒绝优先的当前策略组版本决策引擎。 */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -68,362 +61,299 @@ public class DefaultAuthorizationService implements AuthorizationService {
     private final SubjectProvider subjectProvider;
     private final ResourceRegistry resourceRegistry;
     private final AuthzResourceMapper resourceMapper;
-    private final AuthzPolicyMapper policyMapper;
-    private final AuthzPolicyVersionMapper policyVersionMapper;
-    private final AuthzPolicySubjectMapper policySubjectMapper;
-    private final AuthzPolicyResourceMapper policyResourceMapper;
-    private final AuthzPolicyActionMapper policyActionMapper;
+    private final AuthzPolicyRuntimeRuleMapper ruleMapper;
+    private final AuthzPolicyRuntimeSubjectMapper subjectMapper;
+    private final AuthzPolicyRuntimeResourceMapper runtimeResourceMapper;
     private final AuthzGrantMapper grantMapper;
     private final AuthzGrantScopeMapper grantScopeMapper;
     private final AuthzDecisionLogMapper decisionLogMapper;
     private final PolicyConditionEvaluator conditionEvaluator;
     private final AuthorizationObligationMerger obligationMerger;
     private final AuthorizationJsonCodec jsonCodec;
+    private final AuthorizationCatalog catalog;
+    private final AdministratorAuthorizationPolicy administratorPolicy;
+    private final RuntimePolicyRuleMatcher runtimeRuleMatcher;
+    private final SubjectSelectorMatcher subjectMatcher;
 
     @Override
     public AccessDecision decide(AccessRequest request) {
         long start = System.currentTimeMillis();
-        if (request == null || request.getResourceId() == null || StringUtils.isBlank(request.getAction())) {
-            return audited(request, null, deny("AUTHZ_REQUEST_INVALID", "资源和动作不能为空"), start);
+        SubjectContext subject = request == null || request.getSubject() == null
+            ? subjectProvider.currentSubject() : request.getSubject();
+        if (request == null || StringUtils.isBlank(request.getAction())
+            || (request.getResourceId() == null) == (request.getResource() == null)) {
+            return complete(request, subject, null, deny("AUTHZ_REQUEST_INVALID", "资源和动作不能为空"), start);
         }
-        SubjectContext subject = request.getSubject() == null
-            ? subjectProvider.currentSubject()
-            : request.getSubject();
-        request.setSubject(subject);
-        if (request.getEnvironment() == null) {
-            request.setEnvironment(EnvironmentContext.builder().requestTime(LocalDateTime.now()).build());
-        } else if (request.getEnvironment().getRequestTime() == null) {
-            request.getEnvironment().setRequestTime(LocalDateTime.now());
-        }
-
-        ResourceDescriptor resource = resourceRegistry.findById(request.getResourceId()).orElse(null);
+        ResourceDescriptor resource = request.getResource() == null
+            ? resourceRegistry.findById(request.getResourceId()).orElse(null) : request.getResource();
         if (resource == null) {
-            return audited(request, null, deny("AUTHZ_RESOURCE_NOT_FOUND", "授权资源不存在"), start);
+            return complete(request, subject, null, deny("AUTHZ_RESOURCE_NOT_FOUND", "授权资源不存在"), start);
         }
-        if (!StringUtils.equals(subject.getTenantId(), resource.getTenantId())) {
-            return audited(request, resource, deny("AUTHZ_TENANT_MISMATCH", "禁止跨租户访问资源"), start);
+        if (subject == null || !Objects.equals(subject.getTenantId(), resource.getTenantId())) {
+            return complete(request, subject, resource, deny("AUTHZ_TENANT_MISMATCH", "禁止跨租户访问资源"), start);
         }
         if (!ACTIVE.equals(resource.getStatus())) {
-            return audited(request, resource, deny("AUTHZ_RESOURCE_DISABLED", "授权资源已停用"), start);
+            return complete(request, subject, resource, deny("AUTHZ_RESOURCE_DISABLED", "授权资源已停用"), start);
         }
         if (StringUtils.isNotBlank(request.getResourceType())
-            && !StringUtils.equals(request.getResourceType(), resource.getResourceType())) {
-            return audited(request, resource, deny("AUTHZ_RESOURCE_TYPE_MISMATCH", "资源类型不匹配"), start);
+            && !request.getResourceType().equals(resource.getResourceType())) {
+            return complete(request, subject, resource, deny("AUTHZ_RESOURCE_TYPE_MISMATCH", "资源类型不匹配"), start);
         }
 
-        Set<Long> lineage = loadLineage(resource);
-        List<ResolvedPolicy> policies = loadPolicies(resource, lineage);
-        Map<Long, List<AuthzPolicySubject>> subjectBindings = loadPolicySubjects(policies);
-        Map<Long, Set<String>> actionBindings = loadPolicyActions(policies);
-        List<Long> permitPolicyIds = new ArrayList<>();
-        List<Long> denyPolicyIds = new ArrayList<>();
-        List<AuthorizationObligation> obligations = new ArrayList<>();
+        String requestPurpose = purpose(request);
+        if (StringUtils.isNotBlank(requestPurpose) && !catalog.supportsPurpose(resource.getResourceType(), requestPurpose)) {
+            return complete(request, subject, resource,
+                deny("AUTHZ_PURPOSE_NOT_APPLICABLE", "访问目的不适用于当前资源类型"), start);
+        }
 
-        for (ResolvedPolicy resolved : policies) {
-            AuthzPolicy policy = resolved.policy();
-            AuthzPolicyVersion version = resolved.version();
-            if (!supportsAction(actionBindings.get(version.getPolicyVersionId()), request.getAction())
-                || !matchesSubject(subjectBindings.get(version.getPolicyVersionId()), subject)
-                || !matchesConditions(version.getConditionJson(), subject, resource, request.getEnvironment())) {
+        if (administratorPolicy.permits(subject, request.getAction())) {
+            return complete(request, subject, resource, AccessDecision.builder()
+                .decision(DecisionType.PERMIT).reasonCode("AUTHZ_ADMIN_BYPASS")
+                .reason("管理员管理动作直通").obligation(AuthorizationObligation.builder().build()).build(), start);
+        }
+
+        // 方案C：若请求未指定用途，则自动推导该资源类型支持的所有用途，依次评估
+        if (StringUtils.isBlank(requestPurpose)) {
+            var supportedPurposes = catalog.purposesFor(resource.getResourceType());
+            if (!supportedPurposes.isEmpty()) {
+                AccessDecision lastDenyDecision = null;
+                for (var purposeDef : supportedPurposes) {
+                    AccessRequest subRequest = AccessRequest.builder()
+                        .resource(resource)
+                        .resourceId(resource.getResourceId())
+                        .resourceType(resource.getResourceType())
+                        .action(request.getAction())
+                        .subject(subject)
+                        .environment(EnvironmentContext.builder()
+                            .purpose(purposeDef.code())
+                            .requestTime(request.getEnvironment() != null && request.getEnvironment().getRequestTime() != null
+                                ? request.getEnvironment().getRequestTime() : LocalDateTime.now())
+                            .ip(request.getEnvironment() != null ? request.getEnvironment().getIp() : null)
+                            .attributes(request.getEnvironment() != null ? request.getEnvironment().getAttributes() : Map.of())
+                            .build())
+                        .build();
+                    AccessDecision subDecision = decide(subRequest);
+                    if (subDecision.isAllowed()) {
+                        return complete(request, subject, resource, AccessDecision.builder()
+                            .decision(DecisionType.PERMIT)
+                            .reasonCode(subDecision.getReasonCode())
+                            .reason("在用途【" + purposeDef.label() + "】下授权通过")
+                            .matchedPolicyIds(subDecision.getMatchedPolicyIds())
+                            .matchedGrantIds(subDecision.getMatchedGrantIds())
+                            .obligation(subDecision.getObligation())
+                            .build(), start);
+                    }
+                    lastDenyDecision = subDecision;
+                }
+                return complete(request, subject, resource, lastDenyDecision != null ? lastDenyDecision
+                    : deny("AUTHZ_DEFAULT_DENY", "未命中任何合法用途下的允许策略或有效授权"), start);
+            }
+        }
+
+        Set<Long> lineage = lineage(resource);
+        List<AuthzPolicyRuntimeRule> candidates = ruleMapper.selectList(
+            new LambdaQueryWrapper<AuthzPolicyRuntimeRule>()
+                .eq(AuthzPolicyRuntimeRule::getResourceType, resource.getResourceType())
+                .orderByDesc(AuthzPolicyRuntimeRule::getPriority));
+        Set<Long> groupIds = candidates.stream().map(AuthzPolicyRuntimeRule::getPolicyGroupId)
+            .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, List<AuthzPolicyRuntimeSubject>> subjects = groupIds.isEmpty() ? Map.of()
+            : subjectMapper.selectList(new LambdaQueryWrapper<AuthzPolicyRuntimeSubject>()
+                .in(AuthzPolicyRuntimeSubject::getPolicyGroupId, groupIds)).stream()
+                .collect(java.util.stream.Collectors.groupingBy(AuthzPolicyRuntimeSubject::getPolicyGroupId));
+        Set<Long> ruleIds = candidates.stream().map(AuthzPolicyRuntimeRule::getRuntimeRuleId)
+            .collect(java.util.stream.Collectors.toSet());
+        Map<Long, List<AuthzPolicyRuntimeResource>> resources = ruleIds.isEmpty() ? Map.of()
+            : runtimeResourceMapper.selectList(new LambdaQueryWrapper<AuthzPolicyRuntimeResource>()
+                .in(AuthzPolicyRuntimeResource::getRuntimeRuleId, ruleIds)).stream()
+                .collect(java.util.stream.Collectors.groupingBy(AuthzPolicyRuntimeResource::getRuntimeRuleId));
+
+        List<Long> matchedVersions = new ArrayList<>();
+        List<AuthorizationObligation> permitObligations = new ArrayList<>();
+        boolean permit = false;
+        for (AuthzPolicyRuntimeRule rule : candidates) {
+            if (!runtimeRuleMatcher.matches(rule, subjects.get(rule.getPolicyGroupId()), subject,
+                request.getAction(), purpose(request))
+                || !runtimeRuleMatcher.matchesResource(
+                    rule, resources.get(rule.getRuntimeRuleId()), resource.getResourceId(), lineage)
+                || !matchesCondition(rule.getConditionJson(), subject, resource, request.getEnvironment())) {
                 continue;
             }
-            if (PolicyEffect.DENY.name().equalsIgnoreCase(version.getEffect())) {
-                denyPolicyIds.add(version.getPolicyVersionId());
-                continue;
+            matchedVersions.add(rule.getPolicyGroupVersionId());
+            if (DecisionType.DENY.code().equals(rule.getEffect())) {
+                return complete(request, subject, resource, AccessDecision.builder()
+                    .decision(DecisionType.DENY).reasonCode("AUTHZ_EXPLICIT_DENY")
+                    .reason("命中显式拒绝策略").matchedPolicyIds(List.copyOf(matchedVersions))
+                    .obligation(AuthorizationObligation.builder().build()).build(), start);
             }
-            if (PolicyEffect.PERMIT.name().equalsIgnoreCase(version.getEffect())) {
-                AuthorizationObligation obligation = parseObligation(policy, version);
-                if (obligation == null && StringUtils.isNotBlank(version.getObligationJson())) {
-                    continue;
-                }
-                permitPolicyIds.add(version.getPolicyVersionId());
-                if (obligation != null) {
-                    obligations.add(obligation);
-                }
+            permit = true;
+            if (StringUtils.isNotBlank(rule.getObligationJson())) {
+                permitObligations.add(jsonCodec.read(rule.getObligationJson(), AuthorizationObligation.class));
             }
         }
-
-        if (!denyPolicyIds.isEmpty()) {
-            AccessDecision decision = deny("AUTHZ_EXPLICIT_DENY", "命中明确拒绝策略");
-            decision.setMatchedPolicyIds(denyPolicyIds);
-            return audited(request, resource, decision, start);
+        GrantMatch grant = matchesGrant(subject, resource, lineage, request);
+        if (!permit && grant.grantIds().isEmpty()) {
+            return complete(request, subject, resource, deny("AUTHZ_DEFAULT_DENY", "没有匹配的允许策略或有效授权"), start);
         }
-
-        GrantMatch grantMatch = loadMatchingGrants(request, resource, lineage);
-        List<Long> grantIds = grantMatch.grantIds();
-        obligations.addAll(grantMatch.obligations());
-        if (permitPolicyIds.isEmpty() && grantIds.isEmpty()) {
-            return audited(request, resource,
-                deny("AUTHZ_DEFAULT_DENY", "没有匹配到允许策略或有效 Grant"), start);
-        }
-
-        AccessDecision decision = AccessDecision.builder()
+        permitObligations.addAll(grant.obligations());
+        return complete(request, subject, resource, AccessDecision.builder()
             .decision(DecisionType.PERMIT)
-            .reasonCode(grantIds.isEmpty() ? "AUTHZ_POLICY_PERMIT" : "AUTHZ_GRANT_PERMIT")
-            .reason(grantIds.isEmpty() ? "命中允许策略" : "命中租户内有效 Grant")
-            .matchedPolicyIds(permitPolicyIds)
-            .matchedGrantIds(grantIds)
-            .obligation(obligationMerger.merge(obligations))
-            .build();
-        return audited(request, resource, decision, start);
+            .reasonCode(permit && !grant.grantIds().isEmpty() ? "AUTHZ_POLICY_AND_GRANT_PERMIT"
+                : permit ? "AUTHZ_POLICY_PERMIT" : "AUTHZ_GRANT_PERMIT")
+            .reason("授权通过")
+            .matchedPolicyIds(matchedVersions.stream().distinct().toList())
+            .matchedGrantIds(grant.grantIds())
+            .obligation(obligationMerger.merge(permitObligations)).build(), start);
     }
 
     @Override
     public void check(AccessRequest request) {
         AccessDecision decision = decide(request);
         if (!decision.isAllowed()) {
-            throw new ServiceException(GlobalErrorCode.FORBIDDEN,
-                decision.getReasonCode() + ": " + decision.getReason());
+            throw new ServiceException(GlobalErrorCode.FORBIDDEN, decision.getReason());
         }
     }
 
-    private Set<Long> loadLineage(ResourceDescriptor resource) {
-        Set<Long> result = new LinkedHashSet<>();
-        result.add(resource.getResourceId());
-        AuthzResource current = resourceMapper.selectById(resource.getResourceId());
-        if (current == null || !Boolean.TRUE.equals(current.getInheritPolicy())) {
-            return result;
-        }
-        Long parentId = resource.getParentId();
-        int depth = 0;
-        while (parentId != null && depth++ < MAX_RESOURCE_DEPTH && result.add(parentId)) {
-            AuthzResource parent = resourceMapper.selectById(parentId);
-            parentId = parent == null || !Boolean.TRUE.equals(parent.getInheritPolicy())
-                ? null
-                : parent.getParentId();
-        }
-        return result;
-    }
-
-    private List<ResolvedPolicy> loadPolicies(ResourceDescriptor resource, Set<Long> lineage) {
-        List<AuthzPolicyResource> bindings = policyResourceMapper.selectList(
-            new LambdaQueryWrapper<AuthzPolicyResource>()
-                .and(wrapper -> wrapper.in(AuthzPolicyResource::getResourceId, lineage)
-                    .or(type -> type.isNull(AuthzPolicyResource::getResourceId)
-                        .eq(AuthzPolicyResource::getResourceType, resource.getResourceType()))));
-        Set<Long> policyIds = bindings.stream()
-            .filter(binding -> Objects.equals(binding.getResourceId(), resource.getResourceId())
-                || binding.getResourceId() == null
-                || Boolean.TRUE.equals(binding.getIncludeChildren()))
-            .map(AuthzPolicyResource::getPolicyVersionId)
-            .collect(Collectors.toSet());
-        if (policyIds.isEmpty()) {
-            return List.of();
-        }
-        List<AuthzPolicyVersion> versions = policyVersionMapper.selectList(
-            new LambdaQueryWrapper<AuthzPolicyVersion>()
-                .in(AuthzPolicyVersion::getPolicyVersionId, policyIds)
-                .eq(AuthzPolicyVersion::getVersionStatus, "PUBLISHED"));
-        if (versions.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> aggregateIds = versions.stream().map(AuthzPolicyVersion::getPolicyId).collect(Collectors.toSet());
-        Map<Long, AuthzPolicy> aggregates = policyMapper.selectList(new LambdaQueryWrapper<AuthzPolicy>()
-                .in(AuthzPolicy::getPolicyId, aggregateIds)
-                .eq(AuthzPolicy::getStatus, "PUBLISHED"))
-            .stream().collect(Collectors.toMap(AuthzPolicy::getPolicyId, Function.identity()));
-        return versions.stream()
-            .filter(version -> {
-                AuthzPolicy policy = aggregates.get(version.getPolicyId());
-                return policy != null && Objects.equals(policy.getCurrentVersionId(), version.getPolicyVersionId());
-            })
-            .map(version -> new ResolvedPolicy(aggregates.get(version.getPolicyId()), version))
-            .sorted((left, right) -> Integer.compare(priority(right.version()), priority(left.version())))
-            .toList();
-    }
-
-    private Map<Long, List<AuthzPolicySubject>> loadPolicySubjects(List<ResolvedPolicy> policies) {
-        if (policies.isEmpty()) {
-            return Map.of();
-        }
-        Set<Long> ids = policies.stream().map(value -> value.version().getPolicyVersionId()).collect(Collectors.toSet());
-        return policySubjectMapper.selectList(new LambdaQueryWrapper<AuthzPolicySubject>()
-                .in(AuthzPolicySubject::getPolicyVersionId, ids))
-            .stream().collect(Collectors.groupingBy(AuthzPolicySubject::getPolicyVersionId));
-    }
-
-    private Map<Long, Set<String>> loadPolicyActions(List<ResolvedPolicy> policies) {
-        if (policies.isEmpty()) {
-            return Map.of();
-        }
-        Set<Long> ids = policies.stream().map(value -> value.version().getPolicyVersionId()).collect(Collectors.toSet());
-        return policyActionMapper.selectList(new LambdaQueryWrapper<AuthzPolicyAction>()
-                .in(AuthzPolicyAction::getPolicyVersionId, ids))
-            .stream().collect(Collectors.groupingBy(AuthzPolicyAction::getPolicyVersionId,
-                Collectors.mapping(AuthzPolicyAction::getActionCode, Collectors.toSet())));
-    }
-
-    private GrantMatch loadMatchingGrants(AccessRequest request, ResourceDescriptor resource, Set<Long> lineage) {
-        LocalDateTime now = request.getEnvironment().getRequestTime();
+    private GrantMatch matchesGrant(SubjectContext subject, ResourceDescriptor resource,
+                                    Set<Long> lineage, AccessRequest request) {
+        LocalDateTime now = LocalDateTime.now();
         List<AuthzGrant> grants = grantMapper.selectList(new LambdaQueryWrapper<AuthzGrant>()
-            .eq(AuthzGrant::getStatus, GrantStatus.ACTIVE.name())
-            .le(AuthzGrant::getEffectiveTime, now)
-            .and(wrapper -> wrapper.isNull(AuthzGrant::getExpireTime)
-                .or().ge(AuthzGrant::getExpireTime, now)));
-        List<AuthzGrant> subjectGrants = grants.stream()
-            .filter(grant -> matchesSubject(grant.getGranteeType(), grant.getGranteeId(), request.getSubject()))
-            .filter(grant -> StringUtils.isBlank(grant.getPurpose())
-                || StringUtils.equals(grant.getPurpose(), request.getEnvironment().getPurpose()))
-            .filter(grant -> matchesConditions(grant.getConditionJson(), request.getSubject(),
-                resource, request.getEnvironment()))
-            .toList();
-        if (subjectGrants.isEmpty()) {
+                .eq(AuthzGrant::getStatus, GrantStatus.ACTIVE.code())
+                .le(AuthzGrant::getEffectiveTime, now)
+                .and(value -> value.isNull(AuthzGrant::getExpireTime).or().ge(AuthzGrant::getExpireTime, now)))
+            .stream().filter(value -> subjectMatcher.matches(
+                value.getGranteeType(), value.getGranteeId(), false, subject))
+            .filter(value -> purpose(request).equals(value.getPurpose())).toList();
+        if (grants.isEmpty()) {
             return GrantMatch.empty();
         }
-        Set<Long> grantIds = subjectGrants.stream().map(AuthzGrant::getGrantId).collect(Collectors.toSet());
-        Map<Long, AuthzGrant> byId = subjectGrants.stream()
-            .collect(Collectors.toMap(AuthzGrant::getGrantId, Function.identity()));
-        List<AuthzGrantScope> scopes = grantScopeMapper.selectList(new LambdaQueryWrapper<AuthzGrantScope>()
-            .in(AuthzGrantScope::getGrantId, grantIds)
-            .in(AuthzGrantScope::getResourceId, lineage));
-        List<AuthzGrantScope> matches = scopes.stream()
-            .filter(binding -> Objects.equals(binding.getResourceId(), resource.getResourceId())
-                || Boolean.TRUE.equals(binding.getIncludeChildren()))
-            .filter(binding -> StringUtils.equalsIgnoreCase(binding.getActionCode(), request.getAction()))
-            .toList();
-        List<AuthzGrantScope> validMatches = matches.stream()
-            .filter(scope -> StringUtils.isBlank(scope.getObligationJson()) || parseObligation(scope) != null)
-            .toList();
-        List<Long> matchedIds = validMatches.stream().map(AuthzGrantScope::getGrantId)
-            .filter(byId::containsKey)
-            .distinct()
-            .toList();
-        List<AuthorizationObligation> grantObligations = validMatches.stream()
-            .map(this::parseObligation)
-            .filter(Objects::nonNull)
-            .toList();
-        return new GrantMatch(matchedIds, grantObligations);
-    }
-
-    private boolean matchesSubject(Collection<AuthzPolicySubject> bindings, SubjectContext subject) {
-        return bindings != null && bindings.stream()
-            .anyMatch(binding -> matchesSubject(binding.getSubjectType(), binding.getSubjectId(), subject));
-    }
-
-    private boolean matchesSubject(String typeValue, String id, SubjectContext subject) {
-        if (StringUtils.isBlank(typeValue)) {
-            return false;
+        Set<Long> ids = grants.stream().map(AuthzGrant::getGrantId).collect(java.util.stream.Collectors.toSet());
+        Map<Long, List<AuthzGrantScope>> scopes = grantScopeMapper.selectList(
+                new LambdaQueryWrapper<AuthzGrantScope>().in(AuthzGrantScope::getGrantId, ids)
+                    .eq(AuthzGrantScope::getActionCode, request.getAction()))
+            .stream().collect(java.util.stream.Collectors.groupingBy(AuthzGrantScope::getGrantId));
+        List<Long> matched = new ArrayList<>();
+        List<AuthorizationObligation> obligations = new ArrayList<>();
+        for (AuthzGrant grant : grants) {
+            if (!matchesCondition(grant.getConditionJson(), subject, resource, request.getEnvironment())) {
+                continue;
+            }
+            for (AuthzGrantScope scope : safe(scopes.get(grant.getGrantId()))) {
+                if (lineage.contains(scope.getResourceId())
+                    && (Objects.equals(scope.getResourceId(), resource.getResourceId())
+                    || Boolean.TRUE.equals(scope.getIncludeChildren()))) {
+                    matched.add(grant.getGrantId());
+                    if (StringUtils.isNotBlank(scope.getObligationJson())) {
+                        obligations.add(jsonCodec.read(scope.getObligationJson(), AuthorizationObligation.class));
+                    }
+                    break;
+                }
+            }
         }
-        SubjectType type;
-        try {
-            type = SubjectType.valueOf(typeValue.toUpperCase());
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-        return switch (type) {
-            case ANY -> true;
-            case HUMAN -> subject.getUserId() != null && StringUtils.equals(id, subject.getUserId().toString());
-            case ROLE -> safe(subject.getRoleKeys()).contains(id)
-                || safe(subject.getRoleIds()).stream().map(String::valueOf).anyMatch(value -> value.equals(id));
-            case DEPARTMENT -> safe(subject.getDeptPathIds()).stream()
-                .map(String::valueOf).anyMatch(value -> value.equals(id));
-        };
+        return new GrantMatch(matched.stream().distinct().toList(), obligations);
     }
 
-    private <T> Set<T> safe(Set<T> values) {
-        return values == null ? Set.of() : values;
-    }
-
-    private boolean matchesConditions(String json, SubjectContext subject,
-                                      ResourceDescriptor resource, EnvironmentContext environment) {
+    private boolean matchesCondition(String json, SubjectContext subject, ResourceDescriptor resource,
+                                     EnvironmentContext environment) {
         if (StringUtils.isBlank(json)) {
             return true;
         }
         try {
-            PolicyConditionGroup group = jsonCodec.read(json, PolicyConditionGroup.class);
-            return conditionEvaluator.matches(group, subject, resource, environment);
-        } catch (RuntimeException ex) {
-            log.warn("授权条件配置无效，按不匹配处理", ex);
+            return conditionEvaluator.matches(jsonCodec.read(json, PolicyConditionGroup.class),
+                subject, resource, environment);
+        } catch (RuntimeException exception) {
+            log.warn("授权条件解析失败，按不匹配处理", exception);
             return false;
         }
     }
 
-    private AuthorizationObligation parseObligation(AuthzPolicy policy, AuthzPolicyVersion version) {
-        if (StringUtils.isBlank(version.getObligationJson())) {
-            return null;
+    private Set<Long> lineage(ResourceDescriptor resource) {
+        Set<Long> result = new LinkedHashSet<>();
+        if (resource.getResourceId() == null) {
+            return result;
         }
-        try {
-            return jsonCodec.read(version.getObligationJson(), AuthorizationObligation.class);
-        } catch (RuntimeException ex) {
-            log.warn("策略 {} 的 obligation 配置无效，按不匹配处理", policy.getPolicyCode(), ex);
-            return null;
+        Long currentId = resource.getResourceId();
+        int depth = 0;
+        while (currentId != null && depth++ < MAX_RESOURCE_DEPTH && result.add(currentId)) {
+            AuthzResource current = resourceMapper.selectById(currentId);
+            currentId = current == null || !Boolean.TRUE.equals(current.getInheritPolicy())
+                ? null : current.getParentId();
         }
+        return result;
     }
 
-    private AuthorizationObligation parseObligation(AuthzGrantScope scope) {
-        if (StringUtils.isBlank(scope.getObligationJson())) {
-            return null;
-        }
-        try {
-            return jsonCodec.read(scope.getObligationJson(), AuthorizationObligation.class);
-        } catch (RuntimeException ex) {
-            log.warn("Grant scope {} 的 obligation 配置无效，按无效范围处理", scope.getScopeId(), ex);
-            return null;
-        }
-    }
-
-    private boolean supportsAction(Set<String> actions, String action) {
-        return actions != null && actions.stream().anyMatch(value -> value.equalsIgnoreCase(action));
-    }
-
-    private int priority(AuthzPolicyVersion version) {
-        return version.getPriority() == null ? 0 : version.getPriority();
+    private String purpose(AccessRequest request) {
+        return request == null || request.getEnvironment() == null
+            ? null : request.getEnvironment().getPurpose();
     }
 
     private AccessDecision deny(String code, String reason) {
-        return AccessDecision.builder()
-            .decision(DecisionType.DENY)
-            .reasonCode(code)
-            .reason(reason)
-            .obligation(AuthorizationObligation.builder().build())
-            .build();
+        return AccessDecision.builder().decision(DecisionType.DENY).reasonCode(code).reason(reason)
+            .obligation(AuthorizationObligation.builder().build()).build();
     }
 
-    private AccessDecision audited(AccessRequest request, ResourceDescriptor resource,
-                                   AccessDecision decision, long start) {
+    private AccessDecision complete(AccessRequest request, SubjectContext subject,
+                                    ResourceDescriptor resource, AccessDecision decision, long start) {
         try {
             AuthzDecisionLog audit = new AuthzDecisionLog();
-            SubjectContext subject = request == null ? null : request.getSubject();
-            String resourceTenantId = resource == null ? subject == null ? null : subject.getTenantId() : resource.getTenantId();
-            audit.setTenantId(resourceTenantId);
-            audit.setSubjectTenantId(subject == null ? resourceTenantId : subject.getTenantId());
-            audit.setSubjectType("HUMAN");
-            audit.setSubjectId(subject == null || subject.getUserId() == null ? "ANONYMOUS" : subject.getUserId().toString());
+            String tenantId = resource == null ? subject == null ? null : subject.getTenantId() : resource.getTenantId();
+            audit.setDecisionId(com.baomidou.mybatisplus.core.toolkit.IdWorker.getId());
+            audit.setTenantId(tenantId);
+            audit.setSubjectTenantId(subject == null ? tenantId : subject.getTenantId());
+            PrincipalType type = subject == null || subject.getPrincipalType() == null
+                ? PrincipalType.HUMAN : subject.getPrincipalType();
+            audit.setSubjectType(type.name());
+            audit.setSubjectId(subject == null ? "ANONYMOUS" : StringUtils.defaultIfBlank(subject.getPrincipalId(),
+                Objects.toString(subject.getUserId(), "ANONYMOUS")));
             audit.setSubjectSnapshotJson(jsonCodec.write(Map.of(
                 "userId", subject == null ? "" : Objects.toString(subject.getUserId(), ""),
                 "deptId", subject == null ? "" : Objects.toString(subject.getDeptId(), ""))));
-            audit.setResourceTenantId(resourceTenantId);
-            audit.setResourceId(request == null ? null : request.getResourceId());
-            audit.setResourceTypeSnapshot(resource == null
-                ? request == null || StringUtils.isBlank(request.getResourceType()) ? "UNKNOWN" : request.getResourceType()
-                : resource.getResourceType());
+            audit.setResourceTenantId(tenantId);
+            audit.setResourceId(resource == null ? null : resource.getResourceId());
+            audit.setResourceTypeSnapshot(resource == null ? Objects.toString(request == null ? null
+                : request.getResourceType(), "UNKNOWN") : resource.getResourceType());
             audit.setResourceCodeSnapshot(resource == null ? "UNKNOWN" : resource.getResourceCode());
-            audit.setActionCode(request == null || StringUtils.isBlank(request.getAction()) ? "UNKNOWN" : request.getAction());
+            audit.setActionCode(request == null ? "UNKNOWN" : Objects.toString(request.getAction(), "UNKNOWN"));
             audit.setDecision(decision.getDecision().name());
             audit.setReasonCode(decision.getReasonCode());
             audit.setPolicyVersionIdsJson(jsonCodec.write(decision.getMatchedPolicyIds()));
             audit.setGrantIdsJson(jsonCodec.write(decision.getMatchedGrantIds()));
             audit.setObligationSummaryJson(jsonCodec.write(decision.getObligation()));
-            EnvironmentContext environment = request == null ? null : request.getEnvironment();
-            audit.setPurpose(environment == null ? null : environment.getPurpose());
-            String traceId = environment == null || StringUtils.isBlank(environment.getTraceId())
-                ? MDC.get("traceId")
-                : environment.getTraceId();
-            audit.setTraceId(StringUtils.isBlank(traceId) ? java.util.UUID.randomUUID().toString().replace("-", "") : traceId);
+            audit.setPurpose(purpose(request));
+            String traceId = request == null || request.getEnvironment() == null
+                ? MDC.get("traceId") : request.getEnvironment().getTraceId();
+            audit.setTraceId(StringUtils.defaultIfBlank(traceId,
+                java.util.UUID.randomUUID().toString().replace("-", "")));
             audit.setDurationMs(System.currentTimeMillis() - start);
             audit.setOccurredTime(LocalDateTime.now());
             decisionLogMapper.insert(audit);
-        } catch (RuntimeException ex) {
-            log.error("写入授权决策审计失败，decision={}", decision.getReasonCode(), ex);
+        } catch (RuntimeException exception) {
+            log.error("写入授权决策审计失败，decision={}", decision.getReasonCode(), exception);
+            if (decision.isAllowed() && isHighRisk(request, resource)) {
+                return deny("AUTHZ_AUDIT_UNAVAILABLE", "高风险操作的授权审计不可用，已拒绝执行");
+            }
         }
         return decision;
     }
 
-    private record ResolvedPolicy(AuthzPolicy policy, AuthzPolicyVersion version) {
+    /** 高风险允许决策必须成功留痕；低风险读操作允许在审计故障时降级并告警。 */
+    private boolean isHighRisk(AccessRequest request, ResourceDescriptor resource) {
+        if (request == null || StringUtils.isBlank(request.getAction())) {
+            return false;
+        }
+        String resourceType = resource == null ? request.getResourceType() : resource.getResourceType();
+        return catalog.findResourceType(resourceType).stream()
+            .flatMap(type -> type.actions().stream())
+            .filter(action -> request.getAction().equals(action.code()))
+            .map(action -> StringUtils.defaultString(action.riskLevel()).toUpperCase(java.util.Locale.ROOT))
+            .anyMatch(risk -> "HIGH".equals(risk) || "CRITICAL".equals(risk));
+    }
+
+    private <T> Collection<T> safe(Collection<T> values) {
+        return values == null ? List.of() : values;
     }
 
     private record GrantMatch(List<Long> grantIds, List<AuthorizationObligation> obligations) {
-
         private static GrantMatch empty() {
             return new GrantMatch(List.of(), List.of());
         }

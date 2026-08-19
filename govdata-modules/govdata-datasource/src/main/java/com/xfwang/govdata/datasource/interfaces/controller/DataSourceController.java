@@ -2,6 +2,7 @@ package com.xfwang.govdata.datasource.interfaces.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.xfwang.govdata.datasource.application.catalog.ConnectorCatalogQueryService;
+import com.xfwang.govdata.datasource.application.authorization.view.ProjectionReconcileView;
 import com.xfwang.govdata.datasource.application.connectiontest.DataSourceConnectionTestService;
 import com.xfwang.govdata.datasource.application.connectiontest.view.ConnectionTestView;
 import com.xfwang.govdata.datasource.application.management.DataSourceManagementService;
@@ -19,6 +20,8 @@ import com.xfwang.platform.api.secret.SecretReference;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
@@ -181,7 +184,7 @@ public class DataSourceController {
     @Log(title = "启用数据源", businessType = BusinessType.UPDATE)
     @PutMapping("/{datasourceId}/enable")
     public R<DataSourceView> enable(@NotNull @PathVariable Long datasourceId) {
-        return R.ok(service.changeStatus(datasourceId, "ACTIVE"));
+        return R.ok(service.enable(datasourceId));
     }
 
     /**
@@ -194,7 +197,7 @@ public class DataSourceController {
     @Log(title = "停用数据源", businessType = BusinessType.UPDATE)
     @PutMapping("/{datasourceId}/disable")
     public R<DataSourceView> disable(@NotNull @PathVariable Long datasourceId) {
-        return R.ok(service.changeStatus(datasourceId, "DISABLED"));
+        return R.ok(service.disable(datasourceId));
     }
 
     /**
@@ -210,6 +213,17 @@ public class DataSourceController {
         service.remove(datasourceId);
         return R.ok();
     }
+
+    /** 分批重放历史数据源授权资源投影，修复缺失或属性漂移。 */
+    @SaCheckPermission("govdata:datasource:edit")
+    @Log(title = "数据源授权投影对账", businessType = BusinessType.OTHER)
+    @PostMapping("/authorization-projections/reconcile")
+    public R<ProjectionReconcileView> reconcileAuthorizationProjections(
+        @RequestParam(defaultValue = "0") @Min(0) Long afterId,
+        @RequestParam(defaultValue = "200") @Min(1) @Max(500) int limit) {
+        return R.ok(service.reconcileAuthorizationProjections(afterId, limit));
+    }
+
     /**
      * 查询数据源数据库 / Schema 清单。
      *

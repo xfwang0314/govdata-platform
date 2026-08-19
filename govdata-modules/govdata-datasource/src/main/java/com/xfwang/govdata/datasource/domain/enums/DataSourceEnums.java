@@ -1,5 +1,6 @@
 package com.xfwang.govdata.datasource.domain.enums;
 
+import com.xfwang.platform.api.auth.enums.DataClassification;
 import org.dromara.common.core.exception.GlobalErrorCode;
 import org.dromara.common.core.exception.ServiceException;
 
@@ -34,23 +35,6 @@ public final class DataSourceEnums {
         private final String label;
 
         AccessMode(String label) {
-            this.label = label;
-        }
-
-        public String code() {
-            return name();
-        }
-
-        public String label() {
-            return label;
-        }
-    }
-
-    public enum Classification implements Coded {
-        PUBLIC("公开"), INTERNAL("内部"), SENSITIVE("敏感"), RESTRICTED("受限");
-        private final String label;
-
-        Classification(String label) {
             this.label = label;
         }
 
@@ -106,7 +90,9 @@ public final class DataSourceEnums {
     }
 
     public static String classification(String code) {
-        return require(Classification.values(), code, "数据分类");
+        return DataClassification.fromCode(code)
+            .map(DataClassification::code)
+            .orElseThrow(() -> new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "安全分类无效"));
     }
 
     public static String status(String code) {

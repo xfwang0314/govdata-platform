@@ -9,9 +9,10 @@
 
 ## platform-auth
 
-第一版建表范围固定为 `authz_resource`、`authz_resource_relation`、`authz_policy`、
-`authz_policy_version`、`authz_policy_subject`、`authz_policy_resource`、`authz_policy_action`、
-`authz_grant`、`authz_grant_scope`、`authz_decision_log`。其余表保留完整设计，但不进入第一版执行 DDL。
+第一版建表范围固定为 `authz_resource`、`authz_resource_relation`、`authz_policy_group`、
+`authz_policy_group_version`、`authz_policy_runtime_rule`、`authz_policy_runtime_subject`、
+`authz_policy_runtime_resource`、`authz_policy_operation_log`、`authz_grant`、`authz_grant_scope`、
+`authz_decision_log`。其余表保留完整设计，但不进入第一版执行 DDL。
 
 | 表名 | 阶段 | 关键字段 | 约束与主要索引 |
 |---|---|---|---|
@@ -19,11 +20,12 @@
 | `authz_resource_relation` | P0 | `relation_id`、`source_resource_id`、`target_resource_id`、`relation_type` | `UK(tenant_id,source_resource_id,target_resource_id,relation_type)`；反向查询索引 |
 | `authz_attribute_schema` | P1 | `schema_id`、`scope_type`、`scope_key`、`attribute_code`、`namespace`、`applies_to`、`data_type`、`allowed_values_json`、`required_flag`、`overridable_flag`、`status` | `UK(scope_type,scope_key,attribute_code)`；按总览的全局注册表规则读取；策略发布只允许引用已启用属性 |
 | `platform_service_principal` | P0 | `service_id`、`service_code`、`service_name`、`owner_dept_id`、`client_id`、`secret_ref`、`purpose_scope`、`effective_time`、`expire_time`、`status` | `UK(tenant_id,service_code)`；`UK(tenant_id,client_id)`；SERVICE 使用独立客户端身份，Grant/Delegation 的 SERVICE ID 引用 `service_id` |
-| `authz_policy` | P0 | `policy_id`、`policy_code`、`policy_name`、`current_version_id`、`status`、`risk_level` | `UK(tenant_id,policy_code)`；按状态、风险等级检索 |
-| `authz_policy_version` | P0 | `policy_version_id`、`policy_id`、`version_no`、`effect`、`condition_json`、`obligation_json`、`priority`、`version_status`、`content_hash`、发布审计 | `UK(tenant_id,policy_id,version_no)`；发布版本不可修改；`DENY` 与 `PERMIT` 都保存为稳定值 |
-| `authz_policy_subject` | P0 | `binding_id`、`policy_version_id`、`subject_type`、`subject_id` | `subject_type=ANY` 时 `subject_id='*'`，避免 MySQL NULL 唯一键失效；唯一绑定；索引 `(tenant_id,subject_type,subject_id,policy_version_id)` |
-| `authz_policy_resource` | P0 | `binding_id`、`policy_version_id`、`resource_id`、`resource_type`、`include_children` | 资源 ID 与资源类型至少一个非空；分别按资源 ID、类型索引 |
-| `authz_policy_action` | P0 | `binding_id`、`policy_version_id`、`action_code` | `UK(tenant_id,policy_version_id,action_code)`；不使用逗号字符串保存动作 |
+| `authz_policy_group` | P0 | `policy_group_id`、`policy_group_code`、`status`、`current_version_id`、`draft_version_id`、`next_version_no`、`creation_source`、删除审计、`lock_version` | 策略唯一管理聚合；`UK(tenant_id,policy_group_code)`；聚合状态仅 `DRAFT/ACTIVE/DISABLED`；一个组最多一个待发布版本，`draft_version_id` 为兼容字段名 |
+| `authz_policy_group_version` | P0 | `policy_group_version_id`、`policy_group_id`、`version_no`、`schema_version`、`policy_document_json`、`version_status`、`content_hash`、目录快照、发布审计 | `UK(tenant_id,policy_group_id,version_no)`；完整文档是唯一不可变策略事实；版本状态仅 `DRAFT/PUBLISHED/SUPERSEDED/DISCARDED`，其中 DRAFT 对用户展示为“待发布” |
+| `authz_policy_runtime_rule` | P0 | `runtime_rule_id`、组与版本 ID、`rule_code`、`effect`、`priority`、`resource_type`、`resource_scope`、动作、目的、条件、义务 | 发布时由文档重建；按资源类型、效果和优先级筛选候选规则 |
+| `authz_policy_runtime_subject` | P0 | `runtime_subject_id`、组与版本 ID、`subject_type`、`subject_id`、`include_children` | 发布时由文档重建；主体选择器按 OR 匹配；部门下级继承必须显式开启 |
+| `authz_policy_runtime_resource` | P0 | `runtime_resource_id`、`runtime_rule_id`、`resource_id`、`include_children` | 仅保存实例型规则目标；类型型规则不制造虚拟资源投影 |
+| `authz_policy_operation_log` | P0 | `operation_log_id`、`policy_group_id`、组编码快照、版本 ID、操作类型、状态前后值、原因、内容哈希、操作主体、`trace_id`、`occurred_time` | 生命周期操作追加写；按策略组、版本、traceId 和时间查询；不与授权决策日志混用 |
 | `authz_grant` | P0 | `grant_id`、`grant_code`、`source_type`、`source_id`、`grantor_type`、`grantor_id`、`grantee_type`、`grantee_id`、`purpose`、`effective_time`、`expire_time`、`condition_json`、`status`、`revoked_time` | `UK(tenant_id,grant_code)`；来源幂等键 `UK(tenant_id,source_type,source_id)`；主体和有效期索引；禁止跨租户 |
 | `authz_grant_scope` | P0 | `scope_id`、`grant_id`、`resource_id`、`action_code`、`include_children`、`obligation_json` | `UK(tenant_id,grant_id,resource_id,action_code)`；资源反查索引 |
 | `authz_delegation` | P2 | `delegation_id`、`delegation_no`、`delegator_type`、`delegator_id`、`agent_id`、`agent_task_id`、`purpose`、`effective_time`、`expire_time`、`condition_json`、`status`、`source_grant_id` | 仅 `HUMAN/SERVICE → AGENT`；任务、Agent、有效期索引；不保存用户 Token |
@@ -35,7 +37,9 @@
 ### 关键取舍
 
 - 当前可执行结构以 `script/sql/baseline/20_platform_auth.sql` 为准，策略采用
-  `authz_policy + authz_policy_version` 不可变版本模型。
+  `authz_policy_group + authz_policy_group_version` 不可变版本模型。
+- 策略版本完整文档是唯一事实来源；三张 `authz_policy_runtime_*` 表是发布时可重建的运行时索引；
+  操作日志是独立追加事实。
 - Policy、Grant、Delegation 的动作均使用关系行，不再保存逗号分隔动作。
 - `authz_resource.attributes_json` 只允许保存 `authz_attribute_schema` 注册过的扩展属性。
 - Grant 保存业务来源引用，但不复制 SharingAgreement、Subscription 或审批详情。

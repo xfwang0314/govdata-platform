@@ -208,7 +208,7 @@ create table sys_role (
     role_name            varchar(30)     not null                   comment '角色名称',
     role_key             varchar(100)    not null                   comment '角色权限字符串',
     role_sort            int(4)          not null                   comment '显示顺序',
-    data_scope           char(1)         default '1'                comment '数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限 5：仅本人数据权限 6：部门及以下或本人数据权限）',
+    owner_dept_id        bigint(20)      not null                   comment '角色权属部门ID',
     menu_check_strictly  tinyint(1)      default 1                  comment '菜单树选择项是否关联显示',
     dept_check_strictly  tinyint(1)      default 1                  comment '部门树选择项是否关联显示',
     status               char(1)         not null                   comment '角色状态（0正常 1停用）',
@@ -219,15 +219,16 @@ create table sys_role (
     update_by            bigint(20)      default null               comment '更新者',
     update_time          datetime                                   comment '更新时间',
     remark               varchar(500)    default null               comment '备注',
-    primary key (role_id)
+    primary key (role_id),
+    key idx_sys_role_owner (tenant_id, owner_dept_id, status)
 ) engine=innodb comment = '角色信息表';
 
 -- ----------------------------
 -- 初始化-角色信息表数据
 -- ----------------------------
-insert into sys_role values(1, '000000', '超级管理员',  'superadmin',  1, 1, 1, 1, '0', '0', 103, 1, sysdate(), null, null, '超级管理员');
-insert into sys_role values(3, '000000', '本部门及以下', 'test1', 3, 4, 1, 1, '0', '0', 103, 1, sysdate(), null, null, '');
-insert into sys_role values(4, '000000', '仅本人',      'test2', 4, 5, 1, 1, '0', '0', 103, 1, sysdate(), null, null, '');
+insert into sys_role values(1, '000000', '超级管理员',  'superadmin',  1, 103, 1, 1, '0', '0', 103, 1, sysdate(), null, null, '超级管理员');
+insert into sys_role values(3, '000000', '本部门及以下', 'test1', 3, 103, 1, 1, '0', '0', 103, 1, sysdate(), null, null, '');
+insert into sys_role values(4, '000000', '仅本人',      'test2', 4, 103, 1, 1, '0', '0', 103, 1, sysdate(), null, null, '');
 
 -- ----------------------------
 -- 5、菜单权限表
@@ -273,7 +274,8 @@ insert into sys_menu values('19100', '授权资源', '19000', '1', 'resource', '
 insert into sys_menu values('19200', 'ABAC策略', '19000', '2', 'policy', 'platform/auth/policy/index', '', 1, 0, 'C', '0', '0', 'platform:auth:policy:query', 'shield', 103, 1, sysdate(), null, null, 'ABAC策略管理');
 insert into sys_menu values('19300', '共享授权', '19000', '3', 'grant', 'platform/auth/grant/index', '', 1, 0, 'C', '0', '0', 'platform:auth:grant:query', 'peoples', 103, 1, sysdate(), null, null, '运行时Grant管理');
 insert into sys_menu values('19400', '授权验证', '19000', '4', 'decision', 'platform/auth/decision/index', '', 1, 0, 'C', '0', '0', 'platform:auth:decision:evaluate', 'eye-open', 103, 1, sysdate(), null, null, '授权决策联调页面');
-insert into sys_menu values('19500', '凭据管理', '19000', '5', 'secret', 'platform/secret/index', '', 1, 0, 'C', '0', '0', 'platform:secret:list', 'key', 103, 1, sysdate(), null, null, '平台敏感凭据统一管理');
+insert into sys_menu values('19450', '决策日志', '19000', '5', 'log', 'platform/auth/log/index', '', 1, 0, 'C', '0', '0', 'platform:auth:decision:query', 'form', 103, 1, sysdate(), null, null, '授权决策审计日志');
+insert into sys_menu values('19500', '凭据管理', '19000', '6', 'secret', 'platform/secret/index', '', 1, 0, 'C', '0', '0', 'platform:secret:list', 'key', 103, 1, sysdate(), null, null, '平台敏感凭据统一管理');
 insert into sys_menu values('20100', '数据源管理', '20000', '1', 'datasource', 'govdata/datasource/index', '', 1, 0, 'C', '0', '0', 'govdata:datasource:list', 'connection', 103, 1, sysdate(), null, null, '数据源管理菜单');
 insert into sys_menu values('100',  '用户管理',     '1',   '1', 'user',             'system/user/index',            '', 1, 0, 'C', '0', '0', 'system:user:list',            'user',          103, 1, sysdate(), null, null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理',     '1',   '2', 'role',             'system/role/index',            '', 1, 0, 'C', '0', '0', 'system:role:list',            'peoples',       103, 1, sysdate(), null, null, '角色管理菜单');
@@ -292,9 +294,13 @@ insert into sys_menu values('123',  '客户端管理',   '1',   '11', 'client', 
 insert into sys_menu values('19101', '资源新增', '19100', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:resource:add', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19201', '策略新增', '19200', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:add', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19202', '策略发布', '19200', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:publish', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19203', '策略编辑', '19200', '3', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:edit', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19204', '策略新版本', '19200', '4', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:version', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19205', '策略停用', '19200', '5', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:policy:disable', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19301', '授权新增', '19300', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:add', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19302', '授权激活', '19300', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:activate', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19303', '授权撤销', '19300', '3', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:revoke', '#', 103, 1, sysdate(), null, null, '');
+insert into sys_menu values('19304', '授权删除', '19300', '4', '', '', '', 1, 0, 'F', '0', '0', 'platform:auth:grant:delete', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19501', '凭据查询', '19500', '1', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:query', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19502', '凭据新增', '19500', '2', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:add', '#', 103, 1, sysdate(), null, null, '');
 insert into sys_menu values('19503', '凭据轮换', '19500', '3', '', '', '', 1, 0, 'F', '0', '0', 'platform:secret:rotate', '#', 103, 1, sysdate(), null, null, '');
@@ -566,15 +572,6 @@ insert into sys_role_menu values ('4', '1508');
 insert into sys_role_menu values ('4', '1509');
 insert into sys_role_menu values ('4', '1510');
 insert into sys_role_menu values ('4', '1511');
-
--- ----------------------------
--- 8、角色和部门关联表  角色1-N部门
--- ----------------------------
-create table sys_role_dept (
-    role_id   bigint(20) not null comment '角色ID',
-    dept_id   bigint(20) not null comment '部门ID',
-    primary key(role_id, dept_id)
-) engine=innodb comment = '角色和部门关联表';
 
 -- ----------------------------
 -- 9、用户与岗位关联表  用户1-N岗位

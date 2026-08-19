@@ -58,6 +58,5 @@ public class AuthzGrant extends TenantEntity {
     @Version
     private Integer lockVersion;
 
-    @TableLogic
     private String delFlag;
 }

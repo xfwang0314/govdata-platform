@@ -21,7 +21,8 @@
 - `govdata-api` 和 `platform-api` 只放稳定契约，禁止 Entity、Mapper、Controller、ServiceImpl。
 - 领域模块禁止访问其他领域的 Mapper、Entity、ServiceImpl 或业务表；同步协作走契约，状态传播走事件。
 - 聚合 POM 不得注入业务依赖；每个模块显式声明直接依赖。
-- `govdata-*` 禁止使用旧 `DataPermission`、`DataScopeType` 和 `sys_role.data_scope`；数据资源统一通过 ABAC 执行。
+- 全项目禁止使用旧 `DataPermission`、`DataScopeType` 和 `sys_role.data_scope` 计算运行时范围；平台控制库行范围
+  使用 `@AbacDataScope`，数据资源统一通过 ABAC 执行。超级管理员与租户管理员保留租户内直通。
 
 ## 强制编码规则
 

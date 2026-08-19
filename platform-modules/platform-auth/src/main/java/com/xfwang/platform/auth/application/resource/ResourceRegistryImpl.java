@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.xfwang.platform.api.auth.model.ResourceDescriptor;
 import com.xfwang.platform.api.auth.service.ResourceRegistry;
+import com.xfwang.platform.api.auth.enums.DataClassification;
+import com.xfwang.platform.api.auth.enums.SecurityLevel;
+import com.xfwang.platform.auth.application.catalog.AuthorizationCatalog;
 import com.xfwang.platform.auth.application.decision.AuthorizationJsonCodec;
 import com.xfwang.platform.auth.domain.entity.AuthzResource;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzResourceMapper;
@@ -15,6 +18,7 @@ import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.tenant.helper.TenantHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.dromara.system.api.DeptService;
 
 import java.util.Map;
 import java.util.Optional;
@@ -31,6 +35,8 @@ public class ResourceRegistryImpl implements ResourceRegistry {
 
     private final AuthzResourceMapper resourceMapper;
     private final AuthorizationJsonCodec jsonCodec;
+    private final AuthorizationCatalog authorizationCatalog;
+    private final DeptService deptService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -53,6 +59,10 @@ public class ResourceRegistryImpl implements ResourceRegistry {
             }
             if (resource != null && resource.getResourceId().equals(parent.getResourceId())) {
                 throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "授权资源不能以自身作为父资源");
+            }
+            var definition = authorizationCatalog.findResourceType(descriptor.getResourceType()).orElseThrow();
+            if (!definition.parentTypeCodes().contains(parent.getResourceType())) {
+                throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "授权资源父类型不符合目录定义");
             }
         }
         if (resource == null) {
@@ -94,6 +104,19 @@ public class ResourceRegistryImpl implements ResourceRegistry {
     }
 
     @Override
+    public Optional<ResourceDescriptor> findByBusinessKey(String sourceModule, String resourceType,
+                                                          String businessId) {
+        if (StringUtils.isAnyBlank(sourceModule, resourceType, businessId)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(resourceMapper.selectOne(new LambdaQueryWrapper<AuthzResource>()
+                .eq(AuthzResource::getSourceModule, sourceModule)
+                .eq(AuthzResource::getResourceType, resourceType)
+                .eq(AuthzResource::getBusinessId, businessId)))
+            .map(this::toDescriptor);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public ResourceDescriptor changeStatus(Long resourceId, String status) {
         if (resourceId == null || !RESOURCE_STATUSES.contains(status)) {
@@ -117,6 +140,18 @@ public class ResourceRegistryImpl implements ResourceRegistry {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR,
                 "资源名称、类型、业务标识和来源模块不能为空");
         }
+        var definition = authorizationCatalog.findResourceType(resource.getResourceType())
+            .orElseThrow(() -> new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "资源类型未在授权目录注册"));
+        if (!definition.sourceModule().equals(resource.getSourceModule())) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "资源类型不属于声明的来源模块");
+        }
+        if (StringUtils.isNotBlank(resource.getClassification())
+            && !DataClassification.supports(resource.getClassification())) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "资源安全分类无效");
+        }
+        if (resource.getSecurityLevel() != null && !SecurityLevel.supports(resource.getSecurityLevel())) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "资源安全等级必须在1到5之间");
+        }
     }
 
     private void copy(ResourceDescriptor source, AuthzResource target) {
@@ -126,6 +161,12 @@ public class ResourceRegistryImpl implements ResourceRegistry {
         target.setBusinessId(source.getBusinessId());
         target.setSourceModule(source.getSourceModule());
         target.setOwnerDeptId(source.getOwnerDeptId());
+        target.setOwnerUserId(source.getOwnerUserId());
+        Set<Long> ownerDeptPathIds = source.getOwnerDeptPathIds();
+        if ((ownerDeptPathIds == null || ownerDeptPathIds.isEmpty()) && source.getOwnerDeptId() != null) {
+            ownerDeptPathIds = deptService.selectDeptPathIds(source.getOwnerDeptId());
+        }
+        target.setOwnerDeptPathJson(jsonCodec.write(ownerDeptPathIds == null ? Set.of() : ownerDeptPathIds));
         target.setRegionCode(source.getRegionCode());
         target.setClassification(source.getClassification());
         target.setSecurityLevel(source.getSecurityLevel());
@@ -136,6 +177,9 @@ public class ResourceRegistryImpl implements ResourceRegistry {
         Map<String, Object> attributes = StringUtils.isBlank(resource.getAttributesJson())
             ? Map.of()
             : jsonCodec.read(resource.getAttributesJson(), new TypeReference<Map<String, Object>>() { });
+        Set<Long> ownerDeptPathIds = StringUtils.isBlank(resource.getOwnerDeptPathJson())
+            ? Set.of()
+            : jsonCodec.read(resource.getOwnerDeptPathJson(), new TypeReference<Set<Long>>() { });
         return ResourceDescriptor.builder()
             .resourceId(resource.getResourceId())
             .tenantId(resource.getTenantId())
@@ -146,6 +190,8 @@ public class ResourceRegistryImpl implements ResourceRegistry {
             .businessId(resource.getBusinessId())
             .sourceModule(resource.getSourceModule())
             .ownerDeptId(resource.getOwnerDeptId())
+            .ownerUserId(resource.getOwnerUserId())
+            .ownerDeptPathIds(ownerDeptPathIds == null ? Set.of() : ownerDeptPathIds)
             .regionCode(resource.getRegionCode())
             .classification(resource.getClassification())
             .securityLevel(resource.getSecurityLevel())

@@ -19,7 +19,23 @@ public @interface ResourceAuthorize {
     /**
      * 资源主键的 SpEL 表达式，例如 {@code #tableId}。
      */
-    String resourceId();
+    String resourceId() default "";
+
+    /**
+     * 领域业务稳定 ID 的 SpEL 表达式。与 resourceId 必须且只能配置一个。
+     */
+    String businessId() default "";
+
+    /**
+     * 不做投影的类型资源上下文 SpEL，结果必须为可信构造的 ResourceDescriptor。
+     * 与 resourceId、businessId 必须且只能配置一个。
+     */
+    String resourceContext() default "";
+
+    /**
+     * 使用 businessId 时必填，表示 Resource 的来源模块。
+     */
+    String sourceModule() default "";
 
     /**
      * 预期的资源类型。留空时不校验资源类型。

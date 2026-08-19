@@ -4,16 +4,17 @@ import com.xfwang.govdata.datasource.application.options.view.DataSourceOptionsV
 import com.xfwang.govdata.datasource.application.options.view.OptionView;
 import com.xfwang.govdata.datasource.domain.enums.DataSourceEnums;
 import com.xfwang.govdata.datasource.domain.enums.ConnectionTestReason;
+import com.xfwang.platform.api.auth.enums.DataClassification;
+import com.xfwang.platform.api.auth.enums.SecurityLevel;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.IntStream;
 
 /**
  * 数据源常量与前端下拉字典选项查询应用服务。
  *
- * <p>负责将环境、访问模式、数据分类、安全等级、状态及测试原因码导出为统一的字典选项给前端下拉框消费。</p>
+ * <p>负责将环境、访问模式、安全分类、安全等级、状态及测试原因码导出为统一的字典选项给前端下拉框消费。</p>
  */
 @Service
 public class DataSourceOptionsQueryService {
@@ -27,11 +28,13 @@ public class DataSourceOptionsQueryService {
         return DataSourceOptionsView.builder()
             .environments(toViews(DataSourceEnums.Environment.values()))
             .accessModes(toViews(DataSourceEnums.AccessMode.values()))
-            .classifications(toViews(DataSourceEnums.Classification.values()))
-            .securityLevels(IntStream.rangeClosed(1, 5)
-                .mapToObj(value -> OptionView.builder()
-                    .value(String.valueOf(value))
-                    .label("安全等级 " + value)
+            .classifications(Arrays.stream(DataClassification.values())
+                .map(value -> OptionView.builder().value(value.code()).label(value.label()).build())
+                .toList())
+            .securityLevels(Arrays.stream(SecurityLevel.values())
+                .map(value -> OptionView.builder()
+                    .value(String.valueOf(value.level()))
+                    .label(value.label())
                     .build())
                 .toList())
             .statuses(toViews(DataSourceEnums.Status.values()))

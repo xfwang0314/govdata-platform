@@ -15,24 +15,23 @@ import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.system.api.domain.DeptDTO;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.system.api.DeptService;
+import org.dromara.system.api.permission.DataAuthorizationScopeRequest;
+import org.dromara.system.api.permission.SystemAuthorizationResources;
 import org.dromara.common.core.utils.*;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.mybatis.helper.DataBaseHelper;
 import org.dromara.common.redis.utils.CacheUtils;
-import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.system.domain.SysDept;
-import org.dromara.system.domain.SysRole;
 import org.dromara.system.domain.SysUser;
 import org.dromara.system.domain.bo.SysDeptBo;
 import org.dromara.system.domain.vo.SysDeptVo;
 import org.dromara.system.mapper.SysDeptMapper;
-import org.dromara.system.mapper.SysRoleMapper;
 import org.dromara.system.mapper.SysUserMapper;
 import org.dromara.system.service.ISysDeptService;
+import org.dromara.system.service.support.SystemDataAuthorizationGuard;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,8 +47,8 @@ import java.util.*;
 public class SysDeptServiceImpl implements ISysDeptService, DeptService {
 
     private final SysDeptMapper baseMapper;
-    private final SysRoleMapper roleMapper;
     private final SysUserMapper userMapper;
+    private final SystemDataAuthorizationGuard authorizationGuard;
 
     /**
      * 分页查询部门管理数据
@@ -136,18 +135,6 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
                 .setWeight(node.getOrderNum())
                 .putExtra("disabled", SystemConstants.DISABLE.equals(node.getStatus()))
         );
-    }
-
-    /**
-     * 根据角色ID查询部门树信息
-     *
-     * @param roleId 角色ID
-     * @return 选中部门列表
-     */
-    @Override
-    public List<Long> selectDeptListByRoleId(Long roleId) {
-        SysRole role = roleMapper.selectById(roleId);
-        return baseMapper.selectDeptListByRoleId(roleId, role.getDeptCheckStrictly());
     }
 
     /**
@@ -279,15 +266,21 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
      */
     @Override
     public void checkDeptDataScope(Long deptId) {
+        checkDeptDataScope(deptId, SystemAuthorizationResources.VIEW);
+    }
+
+    @Override
+    public void checkDeptDataScope(Long deptId, String action) {
         if (ObjectUtil.isNull(deptId)) {
             return;
         }
-        if (LoginHelper.isSuperAdmin()) {
-            return;
-        }
-        if (baseMapper.countDeptById(deptId) == 0) {
+        SysDept target = baseMapper.selectById(deptId);
+        if (target == null) {
             throw new ServiceException("没有权限访问部门数据！");
         }
+        authorizationGuard.check(new DataAuthorizationScopeRequest(
+            SystemAuthorizationResources.DEPARTMENT, action,
+            SystemAuthorizationResources.DEPARTMENT_ADMINISTRATION), target.getDeptId(), null);
     }
 
     /**
@@ -296,9 +289,9 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
      * @param bo 部门信息
      * @return 结果
      */
-    @CacheEvict(cacheNames = CacheNames.SYS_DEPT_AND_CHILD, allEntries = true)
     @Override
     public int insertDept(SysDeptBo bo) {
+        checkDeptDataScope(bo.getParentId(), SystemAuthorizationResources.CREATE_CHILD);
         SysDept info = baseMapper.selectById(bo.getParentId());
         // 如果父节点不为正常状态,则不允许新增子节点
         if (!SystemConstants.NORMAL.equals(info.getStatus())) {
@@ -315,13 +308,11 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
      * @param bo 部门信息
      * @return 结果
      */
-    @Caching(evict = {
-        @CacheEvict(cacheNames = CacheNames.SYS_DEPT, key = "#bo.deptId"),
-        @CacheEvict(cacheNames = CacheNames.SYS_DEPT_AND_CHILD, allEntries = true)
-    })
+    @CacheEvict(cacheNames = CacheNames.SYS_DEPT, key = "#bo.deptId")
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int updateDept(SysDeptBo bo) {
+        checkDeptDataScope(bo.getDeptId(), SystemAuthorizationResources.UPDATE);
         SysDept dept = MapstructUtils.convert(bo, SysDept.class);
         SysDept oldDept = baseMapper.selectById(dept.getDeptId());
         if (ObjectUtil.isNull(oldDept)) {
@@ -329,7 +320,7 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
         }
         if (!oldDept.getParentId().equals(dept.getParentId())) {
             // 如果是新父部门 则校验是否具有新父部门权限 避免越权
-            this.checkDeptDataScope(dept.getParentId());
+            this.checkDeptDataScope(dept.getParentId(), SystemAuthorizationResources.CREATE_CHILD);
             SysDept newParentDept = baseMapper.selectById(dept.getParentId());
             if (ObjectUtil.isNotNull(newParentDept)) {
                 String newAncestors = newParentDept.getAncestors() + StringUtils.SEPARATOR + newParentDept.getDeptId();
@@ -394,12 +385,10 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
      * @param deptId 部门ID
      * @return 结果
      */
-    @Caching(evict = {
-        @CacheEvict(cacheNames = CacheNames.SYS_DEPT, key = "#deptId"),
-        @CacheEvict(cacheNames = CacheNames.SYS_DEPT_AND_CHILD, key = "#deptId")
-    })
+    @CacheEvict(cacheNames = CacheNames.SYS_DEPT, key = "#deptId")
     @Override
     public int deleteDeptById(Long deptId) {
+        checkDeptDataScope(deptId, SystemAuthorizationResources.DELETE);
         return baseMapper.deleteById(deptId);
     }
 
@@ -421,6 +410,31 @@ public class SysDeptServiceImpl implements ISysDeptService, DeptService {
                 .in(SysDept::getDeptId, deptIds)
         );
         return StreamUtils.toMap(list, SysDept::getDeptId, SysDept::getDeptName);
+    }
+
+    @Override
+    public Set<Long> selectDeptPathIds(Long deptId) {
+        if (deptId == null) {
+            return Collections.emptySet();
+        }
+        SysDept dept = baseMapper.selectOne(new LambdaQueryWrapper<SysDept>()
+            .select(SysDept::getDeptId, SysDept::getAncestors)
+            .eq(SysDept::getDeptId, deptId));
+        if (dept == null) {
+            return Collections.emptySet();
+        }
+        LinkedHashSet<Long> result = new LinkedHashSet<>();
+        Arrays.stream(Convert.toLongArray(dept.getAncestors())).forEach(result::add);
+        result.add(dept.getDeptId());
+        return Collections.unmodifiableSet(result);
+    }
+
+    @Override
+    public Set<Long> selectDeptAndChildIds(Long deptId) {
+        if (deptId == null) {
+            return Collections.emptySet();
+        }
+        return Collections.unmodifiableSet(new LinkedHashSet<>(baseMapper.selectDeptAndChildById(deptId)));
     }
 
 }

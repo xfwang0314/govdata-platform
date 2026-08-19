@@ -13,8 +13,10 @@ import com.xfwang.govdata.datasource.infrastructure.connector.ConnectorCatalog;
 import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestRequest;
 import com.xfwang.govdata.datasource.infrastructure.connector.model.ConnectionTestResult;
 import com.xfwang.govdata.datasource.infrastructure.connector.registry.ConnectionTesterRegistry;
+import com.xfwang.govdata.datasource.domain.authorization.DataSourceAuthorizationCodes;
 import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceConnectionTestMapper;
 import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceInstanceMapper;
+import com.xfwang.platform.api.auth.annotation.ResourceAuthorize;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.exception.GlobalErrorCode;
@@ -65,6 +67,11 @@ public class DataSourceConnectionTestService {
      * @return 连通测试视图
      * @throws ServiceException 如果数据源不存在或端点校验失败
      */
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.TEST_CONNECTION,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
     public ConnectionTestView test(Long datasourceId) {
         DataSourceInstance instance = instanceMapper.selectById(datasourceId);
         if (instance == null) {
@@ -145,6 +152,11 @@ public class DataSourceConnectionTestService {
      * @return 连通测试历史视图分页结果
      * @throws ServiceException 如果数据源不存在
      */
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.VIEW,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
     public PageResult<ConnectionTestView> history(Long datasourceId, PageQuery pageQuery) {
         DataSourceInstance instance = instanceMapper.selectById(datasourceId);
         if (instance == null) {

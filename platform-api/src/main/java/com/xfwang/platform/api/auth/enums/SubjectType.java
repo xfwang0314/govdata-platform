@@ -11,5 +11,9 @@ public enum SubjectType {
 
     ROLE,
 
-    DEPARTMENT
+    DEPARTMENT,
+
+    SERVICE,
+
+    AGENT
 }

@@ -1,5 +1,7 @@
 package com.xfwang.govdata.datasource.application.management.command;
 
+import com.xfwang.platform.api.auth.enums.DataClassification;
+import com.xfwang.platform.api.auth.enums.SecurityLevel;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -48,13 +50,13 @@ public class DataSourceCommand implements Serializable {
     @NotNull
     private String accessMode = "READ_ONLY";
 
-    @Min(1)
-    @Max(5)
-    private Integer securityLevel = 1;
+    @Min(SecurityLevel.MIN)
+    @Max(SecurityLevel.MAX)
+    private Integer securityLevel = SecurityLevel.MIN;
 
     @NotBlank
     @Size(max = 32)
-    private String classificationCode = "INTERNAL";
+    private String classificationCode = DataClassification.INTERNAL.code();
 
     private Integer lockVersion;
 

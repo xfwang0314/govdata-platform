@@ -16,7 +16,9 @@ import com.xfwang.govdata.datasource.infrastructure.connector.model.MetadataInsp
 import com.xfwang.govdata.datasource.infrastructure.connector.model.TableMeta;
 import com.xfwang.govdata.datasource.infrastructure.connector.model.TableSchema;
 import com.xfwang.govdata.datasource.infrastructure.connector.registry.MetadataInspectorRegistry;
+import com.xfwang.govdata.datasource.domain.authorization.DataSourceAuthorizationCodes;
 import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceInstanceMapper;
+import com.xfwang.platform.api.auth.annotation.ResourceAuthorize;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.exception.GlobalErrorCode;
 import org.dromara.common.core.exception.ServiceException;
@@ -59,6 +61,11 @@ public class DataSourceMetadataInspectService {
     /**
      * 查询数据源拥有的数据库 / Schema 清单。
      */
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.METADATA_INSPECT,
+        purpose = DataSourceAuthorizationCodes.Purpose.METADATA_INSPECTION)
     public List<DatabaseView> listDatabases(Long datasourceId) {
         DataSourceInstance instance = requireActive(datasourceId);
         requireCapability(instance, "METADATA_INSPECT");
@@ -78,6 +85,11 @@ public class DataSourceMetadataInspectService {
      * 分页查询数据源表清单。
      * 前置校验：数据源必须 ACTIVE，Connector 必须声明 METADATA_INSPECT 能力。
      */
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.METADATA_INSPECT,
+        purpose = DataSourceAuthorizationCodes.Purpose.METADATA_INSPECTION)
     public List<TableView> listTables(Long datasourceId, String catalog, String schema,
                                       String tableNamePattern, String tableType, int offset, int limit) {
         DataSourceInstance instance = requireActive(datasourceId);
@@ -102,7 +114,13 @@ public class DataSourceMetadataInspectService {
      * @param tableNames 表名列表，最多 500 张
      * @return 表结构视图列表
      */
-    public List<TableSchemaView> inspectColumns(Long datasourceId, String catalog, String schema, List<String> tableNames) {
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.METADATA_INSPECT,
+        purpose = DataSourceAuthorizationCodes.Purpose.METADATA_INSPECTION)
+    public List<TableSchemaView> inspectColumns(Long datasourceId, String catalog, String schema,
+                                                List<String> tableNames) {
         if (tableNames == null || tableNames.isEmpty()) {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "表名列表不能为空");
         }

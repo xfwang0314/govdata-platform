@@ -12,7 +12,8 @@
 RuoYi-Vue-Plus，不建设第二套模型：
 
 - 租户、用户、部门、角色、菜单：`sys_tenant`、`sys_user`、`sys_dept`、`sys_role`、
-  `sys_user_role`、`sys_role_menu`、`sys_role_dept`、`sys_menu`。
+  `sys_user_role`、`sys_role_menu`、`sys_menu`。角色不再保存旧数据范围或角色—部门范围关系。
+- `sys_role.owner_dept_id` 是部门自治角色的当前业务权属；`create_dept` 仅作为创建审计快照，不参与授权。
 - 登录客户端：`sys_client`。
 - 人工审批：WarmFlow 表。
 - 后台调度：Quartz JDBC JobStore 基础设施表；领域计划和运行记录仍由所属领域保存。
@@ -25,12 +26,12 @@ RuoYi-Vue-Plus，不建设第二套模型：
 - [数据流通](03-exchange-sharing-serving-tables.md)：交换、共享、数据服务。
 - [数据治理与语义](04-standard-quality-ontology-tables.md)：标准、质量、本体。
 
-本版共设计 117 张新增表，其中 P0 81 张、P1 23 张、P2 13 张。这里的 P0 表示“对应模块
+本版共设计 118 张新增表，其中 P0 82 张、P1 23 张、P2 13 张。这里的 P0 表示“对应模块
 首次可用时必须建设”，不表示 111 张表需要在同一个迭代同时开发。
 
 | 模块 | 表数量 |
 |---|---:|
-| platform-auth | 16 |
+| platform-auth | 17 |
 | platform-secret | 3 |
 | platform-event | 3 |
 | platform-mcp / Agent | 9 |
@@ -44,7 +45,7 @@ RuoYi-Vue-Plus，不建设第二套模型：
 | govdata-quality | 13 |
 | govdata-ontology | 14 |
 
-`platform-auth` 的 16 张表是完整目标设计；已确认的第一版只执行其中 10 张 Human 主体核心表。
+`platform-auth` 的 17 张表是完整目标设计；已确认的第一版只执行其中 11 张 Human 主体核心表。
 其余 6 张在 SERVICE、属性注册、Agent Delegation 或 BreakGlass 对应能力开发时再进入升级 SQL。
 第一版同时必须建设 `govdata-query`，否则授权产生的行列、脱敏和限量 Obligation 没有统一执行点。
 

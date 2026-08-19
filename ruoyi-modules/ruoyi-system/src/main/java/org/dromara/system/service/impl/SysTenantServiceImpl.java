@@ -53,7 +53,6 @@ public class SysTenantServiceImpl implements ISysTenantService {
     private final SysDeptMapper deptMapper;
     private final SysRoleMapper roleMapper;
     private final SysRoleMenuMapper roleMenuMapper;
-    private final SysRoleDeptMapper roleDeptMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysDictTypeMapper dictTypeMapper;
     private final SysDictDataMapper dictDataMapper;
@@ -145,12 +144,6 @@ public class SysTenantServiceImpl implements ISysTenantService {
         dept.setAncestors(Constants.TOP_PARENT_ID.toString());
         deptMapper.insert(dept);
         Long deptId = dept.getDeptId();
-
-        // 角色和部门关联表
-        SysRoleDept roleDept = new SysRoleDept();
-        roleDept.setRoleId(roleId);
-        roleDept.setDeptId(deptId);
-        roleDeptMapper.insert(roleDept);
 
         // 创建系统用户
         SysUser user = new SysUser();

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Tag;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -101,6 +102,34 @@ class PolicyConditionEvaluatorTest {
         assertThat(matches(subject, resource, environment,
             new PolicyCondition("subject.unknown", ConditionOperator.NOT_IN,
                 null, List.of("disabled")))).isFalse();
+    }
+
+    @Test
+    void shouldEvaluateExistsWithoutRightOperand() {
+        PolicyCondition condition = new PolicyCondition(
+            "resource.status", ConditionOperator.EXISTS, null, null);
+
+        assertThat(matches(
+            SubjectContext.builder().build(),
+            ResourceDescriptor.builder().status("ACTIVE").build(),
+            EnvironmentContext.builder().build(),
+            condition)).isTrue();
+    }
+
+    @Test
+    void shouldEvaluateDepartmentDescendantsAndSelfOwnership() {
+        SubjectContext subject = SubjectContext.builder().deptId(103L).userId(99L).build();
+        ResourceDescriptor resource = ResourceDescriptor.builder()
+            .ownerDeptPathIds(Set.of(100L, 103L, 108L))
+            .ownerUserId(99L)
+            .build();
+
+        assertThat(matches(subject, resource, EnvironmentContext.builder().build(),
+            new PolicyCondition("resource.ownerDeptPathIds", ConditionOperator.CONTAINS,
+                "subject.deptId", null))).isTrue();
+        assertThat(matches(subject, resource, EnvironmentContext.builder().build(),
+            new PolicyCondition("resource.ownerUserId", ConditionOperator.EQ,
+                "subject.userId", null))).isTrue();
     }
 
     private boolean matches(SubjectContext subject, ResourceDescriptor resource,

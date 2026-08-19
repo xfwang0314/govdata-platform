@@ -31,6 +31,9 @@ public interface ISysPostService {
      */
     List<SysPostVo> selectPostList(SysPostBo post);
 
+    /** 按导出动作查询授权范围内的岗位。 */
+    List<SysPostVo> selectPostExportList(SysPostBo post);
+
     /**
      * 查询用户所属岗位组
      *

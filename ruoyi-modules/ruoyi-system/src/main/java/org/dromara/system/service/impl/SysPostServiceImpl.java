@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.system.api.PostService;
+import org.dromara.system.api.permission.DataAuthorizationScopeRequest;
+import org.dromara.system.api.permission.SystemAuthorizationResources;
 import org.dromara.common.core.utils.MapstructUtils;
 import org.dromara.common.core.utils.StreamUtils;
 import org.dromara.common.core.utils.StringUtils;
@@ -22,6 +24,7 @@ import org.dromara.system.mapper.SysDeptMapper;
 import org.dromara.system.mapper.SysPostMapper;
 import org.dromara.system.mapper.SysUserPostMapper;
 import org.dromara.system.service.ISysPostService;
+import org.dromara.system.service.support.SystemDataAuthorizationGuard;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -40,6 +43,7 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
     private final SysPostMapper baseMapper;
     private final SysDeptMapper deptMapper;
     private final SysUserPostMapper userPostMapper;
+    private final SystemDataAuthorizationGuard authorizationGuard;
 
     /**
      * 分页查询岗位列表
@@ -62,7 +66,12 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public List<SysPostVo> selectPostList(SysPostBo post) {
-        return baseMapper.selectVoList(buildQueryWrapper(post));
+        return baseMapper.selectPostList(buildQueryWrapper(post));
+    }
+
+    @Override
+    public List<SysPostVo> selectPostExportList(SysPostBo post) {
+        return baseMapper.selectPostExportList(buildQueryWrapper(post));
     }
 
     /**
@@ -112,7 +121,7 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public List<SysPostVo> selectPostAll() {
-        return baseMapper.selectVoList(new QueryWrapper<>());
+        return baseMapper.selectPostList(new QueryWrapper<>());
     }
 
     /**
@@ -123,7 +132,11 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public SysPostVo selectPostById(Long postId) {
-        return baseMapper.selectVoById(postId);
+        SysPostVo post = baseMapper.selectVoById(postId);
+        if (post != null) {
+            checkPostDataScope(post.getDeptId(), SystemAuthorizationResources.VIEW);
+        }
+        return post;
     }
 
     /**
@@ -146,7 +159,7 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public List<SysPostVo> selectPostByIds(List<Long> postIds) {
-        return baseMapper.selectVoList(new LambdaQueryWrapper<SysPost>()
+        return baseMapper.selectPostList(new LambdaQueryWrapper<SysPost>()
             .select(SysPost::getPostId, SysPost::getPostName, SysPost::getPostCode)
             .eq(SysPost::getStatus, SystemConstants.NORMAL)
             .in(CollUtil.isNotEmpty(postIds), SysPost::getPostId, postIds));
@@ -211,6 +224,8 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public int deletePostById(Long postId) {
+        SysPost post = requirePost(postId);
+        checkPostDataScope(post.getDeptId(), SystemAuthorizationResources.DELETE);
         return baseMapper.deleteById(postId);
     }
 
@@ -224,6 +239,7 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
     public int deletePostByIds(List<Long> postIds) {
         List<SysPost> list = baseMapper.selectByIds(postIds);
         for (SysPost post : list) {
+            checkPostDataScope(post.getDeptId(), SystemAuthorizationResources.DELETE);
             if (this.countUserPostById(post.getPostId()) > 0) {
                 throw new ServiceException("{}已分配，不能删除!", post.getPostName());
             }
@@ -239,6 +255,7 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public int insertPost(SysPostBo bo) {
+        checkPostDataScope(bo.getDeptId(), SystemAuthorizationResources.CREATE);
         SysPost post = MapstructUtils.convert(bo, SysPost.class);
         return baseMapper.insert(post);
     }
@@ -251,6 +268,11 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
      */
     @Override
     public int updatePost(SysPostBo bo) {
+        SysPost current = requirePost(bo.getPostId());
+        checkPostDataScope(current.getDeptId(), SystemAuthorizationResources.UPDATE);
+        if (!ObjectUtil.equals(current.getDeptId(), bo.getDeptId())) {
+            checkPostDataScope(bo.getDeptId(), SystemAuthorizationResources.CREATE);
+        }
         SysPost post = MapstructUtils.convert(bo, SysPost.class);
         return baseMapper.updateById(post);
     }
@@ -272,6 +294,20 @@ public class SysPostServiceImpl implements ISysPostService, PostService {
                 .in(SysPost::getPostId, postIds)
         );
         return StreamUtils.toMap(list, SysPost::getPostId, SysPost::getPostName);
+    }
+
+    private SysPost requirePost(Long postId) {
+        SysPost post = baseMapper.selectById(postId);
+        if (post == null) {
+            throw new ServiceException("岗位不存在");
+        }
+        return post;
+    }
+
+    private void checkPostDataScope(Long ownerDeptId, String action) {
+        authorizationGuard.check(new DataAuthorizationScopeRequest(
+            SystemAuthorizationResources.POST, action,
+            SystemAuthorizationResources.POST_ADMINISTRATION), ownerDeptId, null);
     }
 
 }

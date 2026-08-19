@@ -4,16 +4,22 @@ import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.xfwang.govdata.datasource.application.authorization.DataSourceAuthorizationScope;
+import com.xfwang.govdata.datasource.application.authorization.event.DataSourceAuthorizationProjectionEvent;
+import com.xfwang.govdata.datasource.application.authorization.view.ProjectionReconcileView;
 import com.xfwang.govdata.datasource.application.management.command.DataSourceCommand;
 import com.xfwang.govdata.datasource.application.management.query.DataSourceQuery;
 import com.xfwang.govdata.datasource.application.management.view.DataSourceView;
 import com.xfwang.govdata.datasource.domain.connector.ConnectorDescriptor;
+import com.xfwang.govdata.datasource.domain.authorization.DataSourceAuthorizationCodes;
 import com.xfwang.govdata.datasource.domain.entity.DataSourceInstance;
 import com.xfwang.govdata.datasource.domain.enums.DataSourceEnums;
 import com.xfwang.govdata.datasource.domain.enums.DataSourceSecretUsage;
 import com.xfwang.govdata.datasource.domain.exception.DataSourceErrorCode;
 import com.xfwang.govdata.datasource.infrastructure.connector.ConnectorCatalog;
 import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceInstanceMapper;
+import com.xfwang.platform.api.auth.annotation.ResourceAuthorize;
+import com.xfwang.platform.api.auth.enums.SecurityLevel;
 import com.xfwang.platform.api.secret.SecretCatalog;
 import com.xfwang.platform.api.secret.SecretReferenceValidation;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +30,7 @@ import org.dromara.common.core.utils.StringUtils;
 import org.dromara.common.json.utils.JsonUtils;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
@@ -48,6 +55,8 @@ public class DataSourceManagementService {
     private final DataSourceInstanceMapper instanceMapper;
     private final ConnectorCatalog connectorCatalog;
     private final SecretCatalog secretCatalog;
+    private final ApplicationEventPublisher eventPublisher;
+    private final DataSourceAuthorizationScope authorizationScope;
 
     /**
      * 分页查询数据源列表。
@@ -58,7 +67,13 @@ public class DataSourceManagementService {
      */
     public PageResult<DataSourceView> page(DataSourceQuery query, PageQuery pageQuery) {
         validateQuery(query);
+        var authorizedScope = authorizationScope.administrationViewScope();
+        if (authorizedScope.denied()) {
+            return PageResult.build(java.util.List.of(), 0L);
+        }
         LambdaQueryWrapper<DataSourceInstance> wrapper = new LambdaQueryWrapper<DataSourceInstance>()
+            .in(!authorizedScope.unrestricted(), DataSourceInstance::getAuthzResourceId,
+                authorizedScope.resourceIds())
             .like(StringUtils.isNotBlank(query.getDatasourceCode()), DataSourceInstance::getDatasourceCode,
                 query.getDatasourceCode())
             .like(StringUtils.isNotBlank(query.getDatasourceName()), DataSourceInstance::getDatasourceName,
@@ -88,6 +103,11 @@ public class DataSourceManagementService {
      * @return 数据源视图
      * @throws ServiceException 如果数据源不存在
      */
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.VIEW,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
     public DataSourceView get(Long datasourceId) {
         return toView(require(datasourceId));
     }
@@ -111,6 +131,7 @@ public class DataSourceManagementService {
         instance.setLockVersion(0);
         instance.setDelFlag("0");
         instanceMapper.insert(instance);
+        publishProjection(instance, DataSourceAuthorizationProjectionEvent.Operation.UPSERT);
         return toView(instance);
     }
 
@@ -123,6 +144,11 @@ public class DataSourceManagementService {
      * @throws ServiceException 如果数据源不存在或乐观锁冲突
      */
     @Transactional(rollbackFor = Exception.class)
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.UPDATE,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
     public DataSourceView update(Long datasourceId, DataSourceCommand command) {
         ConnectorDescriptor descriptor = prepare(command);
         DataSourceInstance instance = require(datasourceId);
@@ -137,6 +163,7 @@ public class DataSourceManagementService {
         if (instanceMapper.updateById(instance) != 1) {
             throw new ServiceException(GlobalErrorCode.BUSINESS_ERROR, "数据源已被其他请求修改，请刷新后重试");
         }
+        publishProjection(instance, DataSourceAuthorizationProjectionEvent.Operation.UPSERT);
         return toView(instance);
     }
 
@@ -144,12 +171,29 @@ public class DataSourceManagementService {
      * 变更数据源状态（启用 ACTIVE / 停用 DISABLED）。
      *
      * @param datasourceId 数据源 ID
-     * @param status       目标状态
      * @return 更新后的数据源视图
      * @throws ServiceException 如果未经过连通测试成功即尝试启用
      */
     @Transactional(rollbackFor = Exception.class)
-    public DataSourceView changeStatus(Long datasourceId, String status) {
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.ENABLE,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
+    public DataSourceView enable(Long datasourceId) {
+        return changeStatus(datasourceId, "ACTIVE");
+    }
+
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.DISABLE,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
+    public DataSourceView disable(Long datasourceId) {
+        return changeStatus(datasourceId, "DISABLED");
+    }
+
+    private DataSourceView changeStatus(Long datasourceId, String status) {
         if (!Set.of("ACTIVE", "DISABLED").contains(status)) {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "数据源状态无效");
         }
@@ -159,6 +203,7 @@ public class DataSourceManagementService {
         }
         instance.setStatus(status);
         instanceMapper.updateById(instance);
+        publishProjection(instance, DataSourceAuthorizationProjectionEvent.Operation.UPSERT);
         return toView(instance);
     }
 
@@ -169,12 +214,39 @@ public class DataSourceManagementService {
      * @throws ServiceException 如果数据源处于 ACTIVE 状态
      */
     @Transactional(rollbackFor = Exception.class)
+    @ResourceAuthorize(businessId = "#datasourceId",
+        sourceModule = DataSourceAuthorizationCodes.MODULE,
+        resourceType = DataSourceAuthorizationCodes.RESOURCE_TYPE,
+        action = DataSourceAuthorizationCodes.Action.REMOVE,
+        purpose = DataSourceAuthorizationCodes.Purpose.ADMINISTRATION)
     public void remove(Long datasourceId) {
         DataSourceInstance instance = require(datasourceId);
         if (!"DISABLED".equals(instance.getStatus())) {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "请先停用数据源再删除");
         }
         instanceMapper.deleteById(instance);
+        publishProjection(instance, DataSourceAuthorizationProjectionEvent.Operation.ARCHIVE);
+    }
+
+    /**
+     * 分批重放数据源授权资源投影，可修复缺失和属性漂移。
+     *
+     * @param afterId 上一批最后一个数据源 ID，首批传 0
+     * @param limit 单批大小，接口层限制不超过 500
+     * @return 对账游标与处理数量
+     */
+    public ProjectionReconcileView reconcileAuthorizationProjections(Long afterId, int limit) {
+        Page<DataSourceInstance> batch = instanceMapper.selectPage(new Page<>(1, limit + 1L, false),
+            new LambdaQueryWrapper<DataSourceInstance>()
+                .gt(afterId != null && afterId > 0, DataSourceInstance::getDatasourceId, afterId)
+                .orderByAsc(DataSourceInstance::getDatasourceId));
+        boolean hasMore = batch.getRecords().size() > limit;
+        var records = batch.getRecords().stream().limit(limit).toList();
+        records.forEach(instance ->
+            publishProjection(instance, DataSourceAuthorizationProjectionEvent.Operation.UPSERT));
+        Long nextAfterId = records.isEmpty() ? afterId
+            : records.get(records.size() - 1).getDatasourceId();
+        return new ProjectionReconcileView(records.size(), nextAfterId, hasMore);
     }
 
     /**
@@ -250,7 +322,7 @@ public class DataSourceManagementService {
         if (StringUtils.isNotBlank(query.getClassificationCode())) DataSourceEnums.classification(query.getClassificationCode());
         if (StringUtils.isNotBlank(query.getStatus())) DataSourceEnums.status(query.getStatus());
         if (StringUtils.isNotBlank(query.getLastTestStatus())) DataSourceEnums.testStatus(query.getLastTestStatus());
-        if (query.getSecurityLevel() != null && (query.getSecurityLevel() < 1 || query.getSecurityLevel() > 5)) {
+        if (query.getSecurityLevel() != null && !SecurityLevel.supports(query.getSecurityLevel())) {
             throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "安全等级无效");
         }
     }
@@ -294,6 +366,25 @@ public class DataSourceManagementService {
             .createTime(instance.getCreateTime())
             .updateTime(instance.getUpdateTime())
             .build();
+    }
+
+    private void publishProjection(DataSourceInstance instance,
+                                   DataSourceAuthorizationProjectionEvent.Operation operation) {
+        eventPublisher.publishEvent(new DataSourceAuthorizationProjectionEvent(
+            operation,
+            instance.getDatasourceId(),
+            instance.getAuthzResourceId(),
+            instance.getDatasourceCode(),
+            instance.getDatasourceName(),
+            instance.getConnectorCode(),
+            instance.getEnvironment(),
+            instance.getOwnerDeptId(),
+            instance.getCreateBy(),
+            instance.getAccessMode(),
+            instance.getClassificationCode(),
+            instance.getSecurityLevel(),
+            instance.getStatus()
+        ));
     }
 
 }

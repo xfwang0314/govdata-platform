@@ -4,6 +4,7 @@ import cn.dev33.satoken.exception.NotLoginException;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.convert.Convert;
 import cn.hutool.core.lang.Opt;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.lock.annotation.Lock4j;
@@ -22,7 +23,7 @@ import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.exception.user.UserException;
 import org.dromara.common.core.utils.*;
 import org.dromara.common.log.event.LogininforEvent;
-import org.dromara.common.mybatis.helper.DataPermissionHelper;
+import org.dromara.common.mybatis.helper.AbacDataScopeHelper;
 import org.dromara.common.redis.utils.RedisUtils;
 import org.dromara.common.satoken.utils.LoginHelper;
 import org.dromara.common.tenant.exception.TenantException;
@@ -37,6 +38,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -163,12 +165,18 @@ public class SysLoginService {
             Opt<SysDeptVo> deptOpt = Opt.of(user.getDeptId()).map(deptService::selectDeptById);
             loginUser.setDeptName(deptOpt.map(SysDeptVo::getDeptName).orElse(StringUtils.EMPTY));
             loginUser.setDeptCategory(deptOpt.map(SysDeptVo::getDeptCategory).orElse(StringUtils.EMPTY));
+            LinkedHashSet<Long> deptPathIds = new LinkedHashSet<>();
+            deptOpt.map(SysDeptVo::getAncestors).ifPresent(value ->
+                StringUtils.splitTo(value, Convert::toLong).stream()
+                    .filter(id -> id != null && id > 0)
+                    .forEach(deptPathIds::add));
+            deptPathIds.add(user.getDeptId());
+            loginUser.setDeptPathIds(deptPathIds);
         }
         List<SysRoleVo> roles = roleService.selectRolesByUserId(userId);
         List<SysPostVo> posts = postService.selectPostsByUserId(userId);
         List<RoleDTO> roleDtos = BeanUtil.copyToList(roles, RoleDTO.class);
         loginUser.setRoles(roleDtos);
-        loginUser.setDataScopeRoleMap(permissionService.getDataScopeRoleMap(roleDtos));
         loginUser.setPosts(BeanUtil.copyToList(posts, PostDTO.class));
         return loginUser;
     }
@@ -184,7 +192,7 @@ public class SysLoginService {
         sysUser.setLoginIp(ip);
         sysUser.setLoginDate(DateUtils.getNowDate());
         sysUser.setUpdateBy(userId);
-        DataPermissionHelper.ignore(() -> userMapper.updateById(sysUser));
+        AbacDataScopeHelper.ignore(() -> userMapper.updateById(sysUser));
     }
 
     /**

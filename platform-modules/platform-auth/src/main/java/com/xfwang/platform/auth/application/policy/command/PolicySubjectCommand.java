@@ -12,4 +12,7 @@ public class PolicySubjectCommand {
 
     @NotBlank
     private String subjectId;
+
+    /** 仅 DEPARTMENT 使用，是否包含下级部门。 */
+    private Boolean includeChildren = false;
 }

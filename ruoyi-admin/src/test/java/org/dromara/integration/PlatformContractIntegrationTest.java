@@ -7,8 +7,7 @@ import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.core.domain.R;
 import org.dromara.common.core.exception.GlobalErrorCode;
 import org.dromara.common.json.config.JacksonConfig;
-import org.dromara.common.mybatis.enums.DataScopeType;
-import org.dromara.common.mybatis.helper.DataPermissionHelper;
+import org.dromara.common.mybatis.helper.AbacDataScopeHelper;
 import org.dromara.common.tenant.handle.PlusTenantLineHandler;
 import org.dromara.common.tenant.helper.TenantHelper;
 import org.dromara.common.tenant.properties.TenantProperties;
@@ -95,17 +94,15 @@ class PlatformContractIntegrationTest {
     }
 
     @Test
-    void dataPermissionIgnoreShouldRestoreNestedStateAndUseRoleVariable() {
+    void abacDataScopeIgnoreShouldRestoreNestedState() {
         assertFalse(InterceptorIgnoreHelper.willIgnoreDataPermission("contract.test"));
-        DataPermissionHelper.ignore(() -> {
+        AbacDataScopeHelper.ignore(() -> {
             assertTrue(InterceptorIgnoreHelper.willIgnoreDataPermission("contract.test"));
-            DataPermissionHelper.ignore(() ->
+            AbacDataScopeHelper.ignore(() ->
                 assertTrue(InterceptorIgnoreHelper.willIgnoreDataPermission("contract.test")));
             assertTrue(InterceptorIgnoreHelper.willIgnoreDataPermission("contract.test"));
         });
         assertFalse(InterceptorIgnoreHelper.willIgnoreDataPermission("contract.test"));
-        assertThat(DataScopeType.CUSTOM.getSqlTemplate()).contains("#roleId");
-        assertThat(DataScopeType.CUSTOM.getSqlTemplate()).doesNotContain("#user.roleId");
     }
 
     @Test

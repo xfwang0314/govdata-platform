@@ -3,7 +3,7 @@
 - 状态：开发环境验证手册
 - 适用范围：`platform-modules/platform-auth`
 - 数据库：MySQL 8.0
-- 最后更新：2026-08-02
+- 最后更新：2026-08-13
 
 ## 验证目标
 
@@ -19,7 +19,7 @@
 → 检查授权决策审计
 ```
 
-本轮使用接口文档验证，不依赖尚未实现的授权管理前端页面。
+可以使用授权管理页面完成同一闭环；本手册保留接口方式，便于排除前端因素并复现问题。
 
 ## 准备数据库与服务
 
@@ -37,6 +37,8 @@ platform:auth:resource:query
 platform:auth:policy:add
 platform:auth:policy:publish
 platform:auth:policy:query
+platform:auth:policy:edit
+platform:auth:policy:disable
 platform:auth:grant:add
 platform:auth:grant:activate
 platform:auth:grant:revoke
@@ -50,23 +52,27 @@ platform:auth:decision:evaluate
 
 ```json
 {
-  "resourceCode": "govdata:table:smoke:population",
-  "resourceName": "人口信息测试表",
-  "resourceType": "govdata:table",
-  "businessId": "smoke-population",
-  "sourceModule": "govdata-metadata",
+  "resourceName": "授权测试数据源",
+  "resourceType": "govdata:datasource",
+  "businessId": "90000001",
+  "sourceModule": "govdata-datasource",
   "ownerDeptId": 103,
   "regionCode": "110000",
-  "classification": "PERSONAL_INFORMATION",
+  "classification": "INTERNAL",
   "securityLevel": 2,
   "attributes": {
-    "regionCode": "110000"
+    "datasource": {
+      "environment": "DEV",
+      "accessMode": "READ_ONLY",
+      "status": "DISABLED",
+      "connectorCode": "mysql"
+    }
   }
 }
 ```
 
 记录响应 `data.resourceId`，后续示例用 `${resourceId}` 表示。重复提交相同
-`resourceCode` 会幂等更新，不会创建第二条资源。
+`sourceModule + resourceType + businessId` 会幂等更新，不会创建第二条资源。
 
 ## 2. 验证默认拒绝
 
@@ -75,9 +81,9 @@ platform:auth:decision:evaluate
 ```json
 {
   "resourceId": "${resourceId}",
-  "resourceType": "govdata:table",
-  "action": "QUERY",
-  "purpose": "授权闭环验证"
+  "resourceType": "govdata:datasource",
+  "action": "VIEW",
+  "purpose": "DATASOURCE_ADMINISTRATION"
 }
 ```
 
@@ -85,14 +91,13 @@ platform:auth:decision:evaluate
 
 ## 3. 发布允许策略
 
-默认初始化库的超级管理员用户 ID 为 `1`。如果使用其他用户，将 `subjectId` 改为当前用户 ID。
+示例部门 ID 为 `103`。请改为当前登录用户所属部门或其祖先部门 ID，并在修改部门后重新登录。
 
 调用 `POST /platform/auth/policies`：
 
 ```json
 {
-  "policyCode": "smoke-population-query",
-  "policyName": "人口信息测试查询策略",
+  "policyName": "数据源部门管理策略",
   "effect": "PERMIT",
   "riskLevel": "LOW",
   "priority": 100,
@@ -100,8 +105,8 @@ platform:auth:decision:evaluate
   "obligationJson": "{\"allowedColumns\":[\"name\",\"regionCode\"],\"maskingRules\":{},\"rowFilters\":[],\"maxRows\":100,\"exportAllowed\":false}",
   "subjects": [
     {
-      "subjectType": "HUMAN",
-      "subjectId": "1"
+      "subjectType": "DEPARTMENT",
+      "subjectId": "103"
     }
   ],
   "resources": [
@@ -110,7 +115,7 @@ platform:auth:decision:evaluate
       "includeChildren": false
     }
   ],
-  "actions": ["QUERY"]
+  "actions": ["VIEW", "AUTHORIZE"]
 }
 ```
 
@@ -124,24 +129,20 @@ platform:auth:decision:evaluate
 
 ## 4. 验证 Grant 生命周期
 
-先使用动作 `EXPORT` 重复第 2 步，应保持默认拒绝。然后调用
+先使用动作 `TEST_CONNECTION` 重复第 2 步，应保持默认拒绝。然后调用
 `POST /platform/auth/grants`。时间必须使用 ISO `LocalDateTime` 格式，中间是 `T`：
 
 ```json
 {
-  "sourceType": "ADMIN",
-  "sourceId": "SMOKE-REQUEST-0001",
-  "grantorType": "DEPARTMENT",
-  "grantorId": "103",
   "granteeType": "HUMAN",
   "granteeId": "1",
-  "purpose": "授权闭环验证",
+  "purpose": "DATASOURCE_ADMINISTRATION",
   "effectiveTime": "2026-08-02T00:00:00",
   "expireTime": "2099-12-31T23:59:59",
   "scopes": [
     {
       "resourceId": "${resourceId}",
-      "actionCode": "EXPORT",
+      "actionCode": "TEST_CONNECTION",
       "includeChildren": false,
       "obligationJson": "{\"allowedColumns\":[\"name\"],\"maskingRules\":{},\"rowFilters\":[],\"maxRows\":10,\"exportAllowed\":true}"
     }
@@ -151,11 +152,13 @@ platform:auth:decision:evaluate
 
 记录 `data.grantId`，依次验证：
 
-1. 草稿状态调用 `EXPORT`：仍为默认拒绝。
+HTTP 管理入口会忽略客户端的 source/grantor 字段，由服务端生成 `ADMIN` 来源并绑定当前登录人。
+
+1. 草稿状态调用 `TEST_CONNECTION`：仍为默认拒绝。
 2. 调用 `PUT /platform/auth/grants/${grantId}/activate`。
-3. 再调用 `EXPORT`：返回 `AUTHZ_GRANT_PERMIT`，`matchedGrantIds` 包含该 Grant。
+3. 再调用 `TEST_CONNECTION`：返回 `AUTHZ_GRANT_PERMIT`，`matchedGrantIds` 包含该 Grant。
 4. 调用 `PUT /platform/auth/grants/${grantId}/revoke`，请求体为 `{"reason":"闭环验证结束"}`。
-5. 再调用 `EXPORT`：恢复 `AUTHZ_DEFAULT_DENY`。
+5. 再调用 `TEST_CONNECTION`：恢复 `AUTHZ_DEFAULT_DENY`。
 
 ## 5. 检查审计
 
@@ -175,7 +178,7 @@ ORDER BY occurred_time DESC
 LIMIT 20;
 ```
 
-应至少看到 QUERY 与 EXPORT 的拒绝、允许、撤销后拒绝记录，并能使用 `trace_id`
+应至少看到 VIEW 与 TEST_CONNECTION 的拒绝、允许、撤销后拒绝记录，并能使用 `trace_id`
 关联应用日志。
 
 ## 当前边界

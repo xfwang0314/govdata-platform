@@ -12,7 +12,7 @@ import java.util.Set;
 
 /** 新建不可变策略草稿输入。 */
 @Data
-public class PolicyDraftCommand {
+public class PolicyDraftCommand implements PolicyContentCommand {
 
     @NotBlank
     private String policyName;

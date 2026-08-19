@@ -92,7 +92,6 @@ public class SysDeptController extends BaseController {
     @PutMapping
     public R<Void> edit(@Validated @RequestBody SysDeptBo dept) {
         Long deptId = dept.getDeptId();
-        deptService.checkDeptDataScope(deptId);
         if (!deptService.checkDeptNameUnique(dept)) {
             return R.fail("修改部门'" + dept.getDeptName() + "'失败，部门名称已存在");
         } else if (dept.getParentId().equals(deptId)) {
@@ -128,7 +127,6 @@ public class SysDeptController extends BaseController {
         if (postService.countPostByDeptId(deptId) > 0) {
             return R.warn("部门存在岗位,不允许删除");
         }
-        deptService.checkDeptDataScope(deptId);
         return toAjax(deptService.deleteDeptById(deptId));
     }
 

@@ -55,7 +55,7 @@ Domain Module
 - 平台控制库只正式支持 MySQL 8，数据库脚本手工版本化维护。
 - 采用 Redis Streams 作为跨模块事件传输，MySQL Outbox 是可靠事实记录。
 - WarmFlow 管人工审批，嵌入式 Quartz 管后台调度，SeaTunnel 管数据交换执行。
-- 旧 `data_scope` 仅用于 RuoYi 系统管理；新 `govdata-*` 模块统一使用 ABAC。
+- 运行时数据范围统一使用 ABAC；RuoYi 的 `data_scope` 字段、角色部门范围表和旧拦截实现已移除。
 - 本体第一版只管理概念、关系和语义映射，不承载海量知识图谱实例。
 - Agent/MCP 是后续能力，但身份、委托和授权 seam 从第一版设计中保留。
 

@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * ABAC Environment 属性快照。
+ * 环境属性上下文。
  */
 @Data
 @Builder

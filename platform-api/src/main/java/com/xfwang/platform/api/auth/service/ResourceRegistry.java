@@ -15,6 +15,9 @@ public interface ResourceRegistry {
 
     Optional<ResourceDescriptor> findByCode(String resourceCode);
 
+    /** 按领域业务稳定键查询授权投影。 */
+    Optional<ResourceDescriptor> findByBusinessKey(String sourceModule, String resourceType, String businessId);
+
     /** 修改资源生命周期状态：ACTIVE、DISABLED 或 ARCHIVED。 */
     ResourceDescriptor changeStatus(Long resourceId, String status);
 }

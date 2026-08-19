@@ -4,6 +4,7 @@ import org.dromara.system.api.domain.DeptDTO;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 通用 部门服务
@@ -42,5 +43,21 @@ public interface DeptService {
      * @return Map，其中 key 为部门 ID，value 为对应的部门名称
      */
     Map<Long, String> selectDeptNamesByIds(List<Long> deptIds);
+
+    /**
+     * 查询指定部门从根部门到自身的稳定 ID 路径。
+     *
+     * @param deptId 部门 ID
+     * @return 祖先部门及当前部门 ID
+     */
+    Set<Long> selectDeptPathIds(Long deptId);
+
+    /**
+     * 查询指定部门及其全部下级部门 ID。
+     *
+     * @param deptId 部门 ID
+     * @return 当前部门及全部下级部门 ID
+     */
+    Set<Long> selectDeptAndChildIds(Long deptId);
 
 }

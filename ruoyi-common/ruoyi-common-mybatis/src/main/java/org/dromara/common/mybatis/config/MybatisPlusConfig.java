@@ -11,11 +11,11 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
 import com.baomidou.mybatisplus.extension.plugins.inner.TenantLineInnerInterceptor;
 import org.dromara.common.core.factory.YmlPropertySourceFactory;
 import org.dromara.common.core.utils.SpringUtils;
-import org.dromara.common.mybatis.aspect.DataPermissionPointcutAdvisor;
+import org.dromara.common.mybatis.aspect.AbacDataScopePointcutAdvisor;
 import org.dromara.common.mybatis.handler.InjectionMetaObjectHandler;
 import org.dromara.common.mybatis.handler.MybatisExceptionHandler;
 import org.dromara.common.mybatis.handler.PlusPostInitTableInfoHandler;
-import org.dromara.common.mybatis.interceptor.PlusDataPermissionInterceptor;
+import org.dromara.common.mybatis.interceptor.PlusAbacDataScopeInterceptor;
 import org.dromara.common.mybatis.interceptor.SqlLogInterceptor;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.BeansException;
@@ -55,8 +55,8 @@ public class MybatisPlusConfig {
             interceptor.addInnerInterceptor(tenant);
         } catch (BeansException ignore) {
         }
-        // 数据权限处理
-        interceptor.addInnerInterceptor(dataPermissionInterceptor());
+        // ABAC 结构化数据范围处理
+        interceptor.addInnerInterceptor(abacDataScopeInterceptor());
         // 分页插件
         interceptor.addInnerInterceptor(paginationInnerInterceptor());
         // 乐观锁插件
@@ -67,8 +67,8 @@ public class MybatisPlusConfig {
     /**
      * 数据权限拦截器
      */
-    public PlusDataPermissionInterceptor dataPermissionInterceptor() {
-        return new PlusDataPermissionInterceptor();
+    public PlusAbacDataScopeInterceptor abacDataScopeInterceptor() {
+        return new PlusAbacDataScopeInterceptor();
     }
 
     /**
@@ -76,8 +76,8 @@ public class MybatisPlusConfig {
      */
     @Bean
     @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
-    public DataPermissionPointcutAdvisor dataPermissionPointcutAdvisor() {
-        return new DataPermissionPointcutAdvisor();
+    public AbacDataScopePointcutAdvisor abacDataScopePointcutAdvisor() {
+        return new AbacDataScopePointcutAdvisor();
     }
 
     /**

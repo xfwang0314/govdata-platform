@@ -8,7 +8,6 @@ import org.dromara.system.api.domain.RoleDTO;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -37,6 +36,11 @@ public class LoginUser implements Serializable {
      * 部门ID
      */
     private Long deptId;
+
+    /**
+     * 当前部门及其祖先部门 ID，用于 ABAC 部门层级匹配。
+     */
+    private Set<Long> deptPathIds;
 
     /**
      * 部门类别编码
@@ -112,11 +116,6 @@ public class LoginUser implements Serializable {
      * 角色对象
      */
     private List<RoleDTO> roles;
-
-    /**
-     * 接口权限标识与授权角色 ID 的映射，用于多角色数据权限精确计算。
-     */
-    private Map<String, List<Long>> dataScopeRoleMap;
 
     /**
      * 岗位对象

@@ -44,8 +44,9 @@ public class PolicyConditionEvaluator {
             return false;
         }
         Object left = AttributeResolver.resolve(condition.getLeft(), subject, resource, environment);
-        if (condition.getOperator() == ConditionOperator.EXISTS) {
-            return left != null;
+        if (condition.getOperator() == ConditionOperator.EXISTS
+            || condition.getOperator() == ConditionOperator.NOT_EXISTS) {
+            return condition.getOperator() == ConditionOperator.EXISTS ? left != null : left == null;
         }
         if (left == null) {
             return false;
@@ -62,6 +63,7 @@ public class PolicyConditionEvaluator {
     private boolean evaluate(ConditionOperator operator, Object left, Object right) {
         return switch (operator) {
             case EXISTS -> left != null;
+            case NOT_EXISTS -> left == null;
             case EQ -> equalValue(left, right);
             case NE -> !equalValue(left, right);
             case IN -> right instanceof Collection<?> values && values.stream().anyMatch(value -> equalValue(left, value));
@@ -72,6 +74,14 @@ public class PolicyConditionEvaluator {
             case GTE -> left != null && right != null && compare(left, right) >= 0;
             case LT -> left != null && right != null && compare(left, right) < 0;
             case LTE -> left != null && right != null && compare(left, right) <= 0;
+            case BETWEEN -> right instanceof List<?> bounds && bounds.size() == 2
+                && compare(left, bounds.get(0)) >= 0 && compare(left, bounds.get(1)) <= 0;
+            case INTERSECTS -> left instanceof Collection<?> leftValues
+                && right instanceof Collection<?> rightValues
+                && leftValues.stream().anyMatch(value -> rightValues.stream()
+                    .anyMatch(candidate -> equalValue(value, candidate)));
+            case STARTS_WITH -> left instanceof String leftText && right instanceof String rightText
+                && leftText.startsWith(rightText);
         };
     }
 

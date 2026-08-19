@@ -7,6 +7,8 @@ import lombok.Data;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.common.excel.annotation.ExcelDictFormat;
 import org.dromara.common.excel.convert.ExcelDictConvert;
+import org.dromara.common.translation.annotation.Translation;
+import org.dromara.common.translation.constant.TransConstant;
 import org.dromara.system.domain.SysRole;
 
 import java.io.Serial;
@@ -51,23 +53,22 @@ public class SysRoleVo implements Serializable {
     private Integer roleSort;
 
     /**
-     * 数据范围（1：全部数据权限 2：自定数据权限 3：本部门数据权限 4：本部门及以下数据权限 5：仅本人数据权限 6：部门及以下或本人数据权限）
+     * 角色权属部门。
      */
-    @ExcelProperty(value = "数据范围", converter = ExcelDictConvert.class)
-    @ExcelDictFormat(readConverterExp = "1=全部数据权限,2=自定义数据权限,3=本部门数据权限,4=本部门及以下数据权限,5=仅本人数据权限,6=部门及以下或本人数据权限")
-    private String dataScope;
+    @ExcelProperty(value = "权属部门ID")
+    private Long ownerDeptId;
+
+    /**
+     * 角色权属部门名称。
+     */
+    @Translation(type = TransConstant.DEPT_ID_TO_NAME, mapper = "ownerDeptId")
+    private String ownerDeptName;
 
     /**
      * 菜单树选择项是否关联显示
      */
     @ExcelProperty(value = "菜单树选择项是否关联显示")
     private Boolean menuCheckStrictly;
-
-    /**
-     * 部门树选择项是否关联显示
-     */
-    @ExcelProperty(value = "部门树选择项是否关联显示")
-    private Boolean deptCheckStrictly;
 
     /**
      * 角色状态（0正常 1停用）

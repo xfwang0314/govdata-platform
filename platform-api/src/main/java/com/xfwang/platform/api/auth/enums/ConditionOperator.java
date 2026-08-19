@@ -7,23 +7,45 @@ package com.xfwang.platform.api.auth.enums;
  */
 public enum ConditionOperator {
 
-    EQ,
+    EQ("等于"),
 
-    NE,
+    NE("不等于"),
 
-    IN,
+    IN("属于集合"),
 
-    NOT_IN,
+    NOT_IN("不属于集合"),
 
-    CONTAINS,
+    CONTAINS("包含"),
 
-    GT,
+    GT("大于"),
 
-    GTE,
+    GTE("大于等于"),
 
-    LT,
+    LT("小于"),
 
-    LTE,
+    LTE("小于等于"),
 
-    EXISTS
+    BETWEEN("介于"),
+
+    INTERSECTS("存在交集"),
+
+    STARTS_WITH("开头匹配"),
+
+    EXISTS("存在"),
+
+    NOT_EXISTS("不存在");
+
+    private final String label;
+
+    ConditionOperator(String label) {
+        this.label = label;
+    }
+
+    public String code() {
+        return name();
+    }
+
+    public String label() {
+        return label;
+    }
 }

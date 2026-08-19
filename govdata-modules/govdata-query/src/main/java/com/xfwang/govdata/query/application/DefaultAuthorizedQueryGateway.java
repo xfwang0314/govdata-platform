@@ -221,6 +221,10 @@ public class DefaultAuthorizedQueryGateway implements AuthorizedQueryGateway {
             case NOT_IN -> QueryOperator.NOT_IN;
             case CONTAINS -> QueryOperator.LIKE;
             case EXISTS -> QueryOperator.IS_NOT_NULL;
+            case NOT_EXISTS -> QueryOperator.IS_NULL;
+            case BETWEEN, INTERSECTS, STARTS_WITH -> throw error(
+                QueryErrorCode.AUTHORIZATION_REQUIRED,
+                "查询网关暂不支持授权行条件操作符: " + operator.code());
         };
     }
 

@@ -1,7 +1,6 @@
 package org.dromara.system.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.hutool.core.lang.tree.Tree;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
@@ -13,12 +12,10 @@ import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.core.domain.PageResult;
 import org.dromara.common.web.core.BaseController;
 import org.dromara.system.domain.SysUserRole;
-import org.dromara.system.domain.bo.SysDeptBo;
 import org.dromara.system.domain.bo.SysRoleBo;
 import org.dromara.system.domain.bo.SysUserBo;
 import org.dromara.system.domain.vo.SysRoleVo;
 import org.dromara.system.domain.vo.SysUserVo;
-import org.dromara.system.service.ISysDeptService;
 import org.dromara.system.service.ISysRoleService;
 import org.dromara.system.service.ISysUserService;
 import org.springframework.validation.annotation.Validated;
@@ -39,7 +36,6 @@ public class SysRoleController extends BaseController {
 
     private final ISysRoleService roleService;
     private final ISysUserService userService;
-    private final ISysDeptService deptService;
 
     /**
      * 获取角色信息列表
@@ -57,7 +53,7 @@ public class SysRoleController extends BaseController {
     @SaCheckPermission("system:role:export")
     @PostMapping("/export")
     public void export(SysRoleBo role, HttpServletResponse response) {
-        List<SysRoleVo> list = roleService.selectRoleList(role);
+        List<SysRoleVo> list = roleService.selectRoleExportList(role);
         ExcelUtil.exportExcel(list, "角色数据", SysRoleVo.class, response);
     }
 
@@ -112,19 +108,6 @@ public class SysRoleController extends BaseController {
             return R.ok();
         }
         return R.fail("修改角色'" + role.getRoleName() + "'失败，请联系管理员");
-    }
-
-    /**
-     * 修改保存数据权限
-     */
-    @SaCheckPermission("system:role:edit")
-    @Log(title = "角色管理", businessType = BusinessType.UPDATE)
-    @RepeatSubmit()
-    @PutMapping("/dataScope")
-    public R<Void> dataScope(@RequestBody SysRoleBo role) {
-        roleService.checkRoleAllowed(role);
-        roleService.checkRoleDataScope(role.getRoleId());
-        return toAjax(roleService.authDataScope(role));
     }
 
     /**
@@ -220,27 +203,5 @@ public class SysRoleController extends BaseController {
         roleService.checkRoleDataScope(roleId);
         return toAjax(roleService.insertAuthUsers(roleId, userIds));
     }
-
-    /**
-     * 获取对应角色部门树列表
-     *
-     * @param roleId 角色ID
-     */
-    @SaCheckPermission("system:role:list")
-    @GetMapping(value = "/deptTree/{roleId}")
-    public R<DeptTreeSelectVo> roleDeptTreeselect(@PathVariable("roleId") Long roleId) {
-        DeptTreeSelectVo selectVo = new DeptTreeSelectVo(
-            deptService.selectDeptListByRoleId(roleId),
-            deptService.selectDeptTreeList(new SysDeptBo()));
-        return R.ok(selectVo);
-    }
-
-    /**
-     * 角色部门列表树信息
-     *
-     * @param checkedKeys 选中部门列表
-     * @param depts       下拉树结构列表
-     */
-    public record DeptTreeSelectVo(List<Long> checkedKeys, List<Tree<Long>> depts) {}
 
 }

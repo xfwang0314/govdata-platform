@@ -33,6 +33,9 @@ public interface ISysRoleService {
      */
     List<SysRoleVo> selectRoleList(SysRoleBo role);
 
+    /** 按导出动作查询授权范围内的角色。 */
+    List<SysRoleVo> selectRoleExportList(SysRoleBo role);
+
     /**
      * 根据用户ID查询角色列表
      *
@@ -157,14 +160,6 @@ public interface ISysRoleService {
      * @return 结果
      */
     int updateRoleStatus(Long roleId, String status);
-
-    /**
-     * 修改数据权限信息
-     *
-     * @param bo 角色信息
-     * @return 结果
-     */
-    int authDataScope(SysRoleBo bo);
 
     /**
      * 通过角色ID删除角色

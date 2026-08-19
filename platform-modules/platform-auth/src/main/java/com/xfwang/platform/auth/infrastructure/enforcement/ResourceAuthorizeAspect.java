@@ -4,7 +4,9 @@ import com.xfwang.platform.api.auth.annotation.ResourceAuthorize;
 import com.xfwang.platform.api.auth.model.AccessDecision;
 import com.xfwang.platform.api.auth.model.AccessRequest;
 import com.xfwang.platform.api.auth.model.EnvironmentContext;
+import com.xfwang.platform.api.auth.model.ResourceDescriptor;
 import com.xfwang.platform.api.auth.service.AuthorizationService;
+import com.xfwang.platform.api.auth.service.ResourceRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -38,6 +40,7 @@ public class ResourceAuthorizeAspect {
     public static final String TRUSTED_NETWORK_ZONE_ATTRIBUTE = "authz.networkZone";
 
     private final AuthorizationService authorizationService;
+    private final ResourceRegistry resourceRegistry;
     private final ThreadLocalAuthorizationContextAccessor contextAccessor;
     private final ExpressionParser expressionParser = new SpelExpressionParser();
     private final DefaultParameterNameDiscoverer parameterNameDiscoverer =
@@ -61,8 +64,7 @@ public class ResourceAuthorizeAspect {
 
         MethodBasedEvaluationContext evaluationContext = new MethodBasedEvaluationContext(
             joinPoint.getTarget(), method, joinPoint.getArgs(), parameterNameDiscoverer);
-        Long resourceId = toLong(expressionParser.parseExpression(annotation.resourceId())
-            .getValue(evaluationContext));
+        ResolvedResource resolvedResource = resolveResource(annotation, evaluationContext);
         String purpose = evaluatePurpose(annotation.purpose(), evaluationContext);
         HttpServletRequest servletRequest = ServletUtils.getRequest();
         EnvironmentContext environment = EnvironmentContext.builder()
@@ -73,7 +75,8 @@ public class ResourceAuthorizeAspect {
             .traceId(MDC.get("traceId"))
             .build();
         AccessRequest request = AccessRequest.builder()
-            .resourceId(resourceId)
+            .resourceId(resolvedResource.resourceId())
+            .resource(resolvedResource.resource())
             .resourceType(annotation.resourceType())
             .action(annotation.action())
             .environment(environment)
@@ -89,6 +92,48 @@ public class ResourceAuthorizeAspect {
         } finally {
             contextAccessor.pop();
         }
+    }
+
+    private ResolvedResource resolveResource(ResourceAuthorize annotation,
+                                             MethodBasedEvaluationContext evaluationContext) {
+        boolean idConfigured = StringUtils.isNotBlank(annotation.resourceId());
+        boolean businessConfigured = StringUtils.isNotBlank(annotation.businessId());
+        boolean contextConfigured = StringUtils.isNotBlank(annotation.resourceContext());
+        if ((idConfigured ? 1 : 0) + (businessConfigured ? 1 : 0) + (contextConfigured ? 1 : 0) != 1) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR,
+                "resourceId、businessId 与 resourceContext 必须且只能配置一个");
+        }
+        if (idConfigured) {
+            return new ResolvedResource(toLong(expressionParser.parseExpression(annotation.resourceId())
+                .getValue(evaluationContext)), null);
+        }
+        if (contextConfigured) {
+            Object value = expressionParser.parseExpression(annotation.resourceContext())
+                .getValue(evaluationContext);
+            if (!(value instanceof ResourceDescriptor descriptor)) {
+                throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR,
+                    "resourceContext 必须解析为 ResourceDescriptor");
+            }
+            if (StringUtils.isNotBlank(annotation.resourceType())
+                && !StringUtils.equals(annotation.resourceType(), descriptor.getResourceType())) {
+                throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "资源上下文类型不匹配");
+            }
+            return new ResolvedResource(null, descriptor);
+        }
+        if (StringUtils.isAnyBlank(annotation.sourceModule(), annotation.resourceType())) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR,
+                "businessId 授权必须声明 sourceModule 和 resourceType");
+        }
+        Object businessId = expressionParser.parseExpression(annotation.businessId())
+            .getValue(evaluationContext);
+        if (businessId == null || businessId.toString().isBlank()) {
+            throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "无法解析授权资源业务标识");
+        }
+        Long resourceId = resourceRegistry.findByBusinessKey(annotation.sourceModule(), annotation.resourceType(),
+                businessId.toString())
+            .map(com.xfwang.platform.api.auth.model.ResourceDescriptor::getResourceId)
+            .orElseThrow(() -> new ServiceException(GlobalErrorCode.FORBIDDEN, "授权资源投影尚未就绪"));
+        return new ResolvedResource(resourceId, null);
     }
 
     private String evaluatePurpose(String purpose, MethodBasedEvaluationContext context) {
@@ -122,5 +167,8 @@ public class ResourceAuthorizeAspect {
             }
         }
         throw new ServiceException(GlobalErrorCode.VALIDATION_ERROR, "无法解析授权资源主键");
+    }
+
+    private record ResolvedResource(Long resourceId, ResourceDescriptor resource) {
     }
 }

@@ -3,7 +3,7 @@
 - 状态：当前实现说明
 - 适用范围：`platform-api` 与 `platform-modules/platform-auth` 代码
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-02
+- 最后更新：2026-08-13
 
 > 本文记录当前分支已实现的第一阶段代码。模块边界以
 > [模块与依赖架构](01-module-dependencies.md) 和
@@ -24,7 +24,7 @@
 - 多租户插件是地区之间的硬隔离边界。
 - Sa-Token RBAC 负责登录、角色、菜单和接口功能权限。
 - `platform-auth` 负责对具体资源执行动态授权。
-- 现有 `data_scope` 暂时继续负责存量行级范围，迁移完成前不能删除。
+- 运行时数据范围统一使用 ABAC；旧 `data_scope` 字段、角色—部门范围表和计算链已移除。
 
 ## 模块边界
 
@@ -132,6 +132,36 @@ Service Principal 认证、Agent Identity、Task 和 Delegation 决策链启用�
 
 Resource 可以绑定单个资源、包含其后代，或者绑定一种资源类型。
 
+管理端的“来源模块”只用于筛选资源类型，不进入 Policy 绑定条件，也不切断跨模块资源树。
+例如元数据模块注册 Schema 时，Schema 的 `parent_id` 指向数据源模块投影的 DataSource Resource；
+资源查询批量补齐祖先名称并展示“数据源 / Schema / 表”路径。Policy 最终仍只保存统一的
+`resource_id` 或 `resource_type`。
+
+### Policy 生命周期
+
+策略聚合通过 `current_version_id` 指向当前发布版本，通过兼容字段 `draft_version_id` 指向唯一待发布版本。
+生命周期使用平台内部的轻量领域状态机，不引入外部工作流或状态机框架：
+
+```text
+首次创建：聚合 DRAFT，版本 v1=DRAFT（页面展示为待发布）
+首次发布：聚合 DRAFT -> ACTIVE，版本 v1 DRAFT -> PUBLISHED
+停用：聚合 ACTIVE -> DISABLED，当前版本仍为 PUBLISHED，但立即退出授权决策
+新建版本：仅在 DISABLED 下复制当前完整文档为 vN+1=DRAFT，聚合仍为 DISABLED
+发布新版本：旧版本 PUBLISHED -> SUPERSEDED，待发布版本 -> PUBLISHED，聚合 -> ACTIVE
+放弃修改：待发布版本 DRAFT -> DISCARDED，原当前版本和聚合 DISABLED 状态不变
+```
+
+- PUBLISHED、SUPERSEDED 和 DISCARDED 版本均不可原地修改；修改只能发生在待发布版本上。
+- 运行中的版本只能查看和停用；新建版本前必须先停用。新建版本不会立刻改变授权结果，只有发布事务同时
+  切换 `current_version_id` 后才重新启用。
+- `policy_document_json` 保存主体、资源、动作、条件和约束的完整策略事实；发布时由它重新编译
+  Subject、Resource、Action 关联索引。关联索引可重建，不承担历史事实职责。
+- 决策日志使用版本主键还原历史授权事实；策略生命周期变更写入独立的
+  `authz_policy_operation_log`，两种日志不得混用。
+- 待发布版本使用 `lock_version` 防止并发覆盖；同一策略同时只能存在一个待发布版本。
+- `include_children` 只表示具体资源绑定是否覆盖后代资源；资源自身是否继承父策略由
+  `authz_resource.inherit_policy` 决定，二者不能混用。
+
 策略约束示例：
 
 ```json
@@ -237,7 +267,8 @@ public PageResult<TableRowVO> query(Long resourceId, QueryRequest request) {
    `SubjectContext`，包含 tenant、user、role、department 和已注册主体属性。
 5. 决策服务从 `authz_resource` 加载 Resource，先执行资源存在、租户一致、状态和资源类型校验；
    任一失败立即返回 DENY。
-6. 决策服务加载资源自身及最多 32 层父资源，寻找当前 `PUBLISHED` Policy 的当前不可变版本，
+6. 决策服务加载资源自身及最多 32 层父资源，寻找聚合状态为 `ACTIVE` 且当前版本为 `PUBLISHED`
+   的不可变 Policy，
    依次匹配 Subject、Resource、Action、Environment 条件。
 7. 只要命中一个显式 `DENY` Policy，立即拒绝；它优先于所有 PERMIT Policy 和 Grant。
 8. 没有显式拒绝时，继续匹配当前主体的 ACTIVE Grant，并校验生效时间、失效时间、用途、
@@ -306,37 +337,108 @@ SFTP 和外部 API 必须经过统一数据访问网关，由网关执行：
 - 受限 JSON 条件求值。
 - 默认拒绝、明确拒绝优先的决策。
 - Sa-Token Subject 适配。
+- HUMAN Principal 与 ROLE/DEPARTMENT Subject Selector 分离，登录态包含当前部门和祖先部门链。
+- 业务模块贡献式授权目录，统一注册 Resource Type、Action、Attribute 与 Purpose。
 - `@ResourceAuthorize` 执行点。
+- `@ResourceAuthorize` 支持按业务稳定 ID 解析授权投影。
 - 请求级 AuthorizationContext。
 - 授权决策审计。
-- MySQL 8 第一版 10 表空库基线。
+- 数据源 Resource 提交后幂等投影、对象级执行点和分批对账入口。
+- 用户、部门和角色关联查询的结构化 ABAC 数据范围桥接；角色本身及相关写操作只执行 RBAC。
+- MySQL 8 第一版 11 表空库基线。
 - 可通过 Swagger 执行的[授权闭环验证](platform-auth-smoke-test.md)。
 
-尚未接管：
+尚未接管或仍需继续完善：
 
-- 原 `sys_role.data_scope`。
+- 未标注 `@AbacDataScope` 的 RuoYi 存量模块只执行租户隔离与 RBAC；`sys_role.data_scope`、
+  `sys_role_dept` 及旧运行时实现已经物理删除。
+- `AuthorizedResourceService` 为领域列表提供分页前的可见资源集合，数据源列表已按授权资源 ID 在数据库
+  查询阶段过滤；第一版实现保持接口稳定，后续可以在授权模块内替换为策略索引或缓存。
 - MyBatis 行级 Obligation 编译。
 - Column 投影与脱敏执行。
 - 元数据 QueryResourceSchemaProvider、真实 Connector Adapter 和查询访问审计。
-- 策略和 Grant 分页、模拟、停用及管理页面。
-- 部门祖先链与用户密级等扩展 Subject 属性提供器；当前 Sa-Token 适配只提供当前部门。
+- 策略停用和版本修订流程。
+- 用户密级、行政区划等扩展 Subject 属性提供器；当前已提供部门祖先链。
 
-在上述执行能力完成前，不得删除当前 `DataPermission`、`DataScopeType`、
-`sys_role.data_scope` 或 `sys_role_dept`。
+### 部门数据范围预设
+
+管理端通过受控策略模板从六种固定部门范围批量创建 ABAC 待发布版本。一次配置可以选择多个
+用户、角色和资源类型；模板按资源类型拆分策略，各类型分别声明动作和资源范围。转换关系如下：
+
+```text
+全部                         -> 无附加条件
+自定义                       -> resource.ownerDeptId IN [部门ID]
+本部门                       -> resource.ownerDeptId EQ subject.deptId
+本部门及以下                 -> resource.ownerDeptPathIds CONTAINS subject.deptId
+仅本人                       -> resource.ownerUserId EQ subject.userId
+本部门及以下或本人           -> 上述两项 ANY
+```
+
+模板先提供无副作用预览，确认后在一个事务中生成多条标准待发布版本，并使用同一
+模板只生成一次普通策略组待发布版本。`authz_policy_group` 保存稳定身份、生命周期指针和模板来源编码；
+`authz_policy_group_version.policy_document_json` 是策略内容唯一事实。运行中的策略必须先停用，停用后通过
+“开始修改”复制完整文档形成唯一待发布版本，编辑完成后原子发布；历史版本继续作为授权审计事实保留。
+管理端编辑模板策略时，后端从待发布版本的标准条件反解部门范围预设和自定义部门，页面修改后再编译回
+标准条件。回显参数是派生视图，不在策略组表增加独立列。
+历史 Resource 必须通过所属领域投影对账重放，补齐部门路径和所有人。
+
+旧 `DataPermission`、`DataScopeType`、角色数据范围修改接口及其运行时计算链已经移除；
+`sys_role.data_scope` 和 `sys_role_dept` 已删除，前端角色页不得恢复旧配置入口。
+
+### 系统管理首批迁移边界
+
+用户列表、用户导出、角色已分配/未分配用户以及部门列表，通过 `@AbacDataScope` 声明稳定
+Resource Type 和 Action。MyBatis 拦截器向 `DataAuthorizationScopeProvider` 请求结构化范围，平台授权模块只返回
+“全部、拒绝、部门 ID 集合、是否包含本人”，不得返回 SQL。SQL 列名仍由 Mapper 注解控制。
+
+超级管理员和当前租户的租户管理员在该拦截器中保留直通；普通用户缺少已发布允许策略时默认拒绝。
+
+运行时只识别已发布、当前版本、主体和动作匹配，并且能够反向解析为六种受控部门范围的 ABAC Policy。
+多个允许策略取并集，任何匹配的明确拒绝优先；没有可执行的允许策略时默认拒绝。用户、部门、岗位和角色数据不逐行注册
+`authz_resource`，策略按 `system:user`、`system:department`、`system:post`、`system:role` 资源类型绑定。
+
+授权目录通过 `selectionModes` 显式声明资源类型支持的绑定粒度：`TYPE` 表示按类型授权且不要求逐条投影，
+`INSTANCE` 表示选择 `authz_resource` 中的具体投影。用户、部门仅声明 `TYPE`；数据源等独立治理资源声明
+`TYPE + INSTANCE`。策略页面必须消费该声明，不得根据资源列表是否为空猜测授权模式。
+
+绑定粒度不等于管理用途。每种 Resource Type 还必须声明 `capabilities`：
+
+- `RESOURCE_CATALOG`：显示在授权资源台账。
+- `CUSTOM_POLICY` / `POLICY_TEMPLATE`：分别允许自定义策略或范围模板引用。
+- `QUERY_SCOPE`：可被 MyBatis 结构化数据范围适配器使用。
+- `GRANT`：允许创建共享授权。
+- `INSTANCE_DECISION` / `TYPE_CONTEXT_DECISION`：分别允许投影实例或可信非投影上下文参与运行时决策。
+
+用户、部门类型只承担策略模板和查询范围语义，因此不进入资源目录、自定义策略和 Grant。数据源等需要
+对象级治理的资源继续投影。质量任务等只需类型策略、无需对象级 Grant 的资源，可以由业务模块构造可信
+`ResourceDescriptor`，通过 `@ResourceAuthorize(resourceContext = "...")` 进入决策；此路径不读取
+`authz_resource`、不匹配 Grant，只匹配同类型已发布策略，且客户端不得直接提交授权属性。
+
+条件属性目录同时约束值类型、运算符、左右操作数角色、基础/高级/模板可见性和稳定选项。管理端默认提供
+“本人、本部门、本部门及以下、同区域、安全许可、可信网络”等常用预设，只有高级模式才展示原始属性比较；
+后端始终按目录校验，`INTEGER`、集合、布尔和时间不得以任意字符串绕过。
+
+全项目运行时不再读取 `sys_role.data_scope`：
+
+- 用户、部门和角色关联列表读取 ABAC。
+- 用户、部门和角色写操作及角色列表只执行 Controller RBAC 和租户隔离。
+- 工作流、岗位等尚未接入 ABAC 的模块只执行租户隔离与 Controller RBAC；需要行范围时必须显式新增
+  `@AbacDataScope`、授权目录和测试，不得恢复旧实现。
 
 ## 第一版验收边界
 
 第一版采用 Human 主体的 `Resource + ABAC + AuthorizationGrant` 核心子集。数据库基线由以下
-10 张表组成：
+11 张表组成：
 
 ```text
 authz_resource
 authz_resource_relation
-authz_policy
-authz_policy_version
-authz_policy_subject
-authz_policy_resource
-authz_policy_action
+authz_policy_group
+authz_policy_group_version
+authz_policy_runtime_rule
+authz_policy_runtime_subject
+authz_policy_runtime_resource
+authz_policy_operation_log
 authz_grant
 authz_grant_scope
 authz_decision_log
@@ -345,7 +447,7 @@ authz_decision_log
 以下能力是第一版上线门槛，不得仅以 Mapper 或手工 SQL 代替：
 
 1. Resource 注册、停用、关系同步和对账。
-2. Policy 草稿、校验、模拟、发布、停用和版本查询服务。
+2. Policy 待发布版本、校验、模拟、发布、停用、放弃修改和版本查询服务。
 3. Grant 创建、激活、到期、撤销及业务来源追踪服务。
 4. Policy、Grant 和授权审计的 RBAC 管理接口与页面配置能力。
 5. `govdata-query` 消费并执行全部查询类 Obligation。

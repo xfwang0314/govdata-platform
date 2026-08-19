@@ -32,6 +32,9 @@
 - Entity 可以继承 RuoYi 的 `BaseEntity`、`TenantEntity`，并使用 MyBatis-Plus 映射注解。
 - Entity 不得进入 Controller 响应、跨模块 Interface、领域事件或其他领域模块。
 - 有生命周期的 Entity 维护自身状态变化和不变量；日志、历史等记录型 Entity 可以只包含字段。
+- 可空字段若存在“清空”用例，使用 MyBatis-Plus `updateById` 前必须声明
+  `@TableField(updateStrategy = FieldStrategy.ALWAYS)`，或使用显式 Mapper 更新语句；必须用测试证明
+  `NULL` 会进入最终 SQL。禁止只在 Java 对象上 `setXxx(null)` 后假设数据库字段会被清空。
 
 ## Controller
 

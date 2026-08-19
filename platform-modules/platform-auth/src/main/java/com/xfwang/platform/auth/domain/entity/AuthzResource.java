@@ -1,7 +1,8 @@
 package com.xfwang.platform.auth.domain.entity;
 
-import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
@@ -31,19 +32,28 @@ public class AuthzResource extends TenantEntity {
 
     private String resourceType;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long parentId;
 
     private String businessId;
 
     private String sourceModule;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long ownerDeptId;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private Long ownerUserId;
+
+    private String ownerDeptPathJson;
+
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String regionCode;
 
-    @TableField("classification_code")
+    @TableField(value = "classification_code", updateStrategy = FieldStrategy.ALWAYS)
     private String classification;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer securityLevel;
 
     private String attributesJson;

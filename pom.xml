@@ -423,8 +423,8 @@
                                     <message>请使用项目 Maven Wrapper（Maven 3.9.9）执行构建。</message>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
-                                    <version>[17,18)</version>
-                                    <message>项目仅支持 JDK 17，请检查 JAVA_HOME。</message>
+                                    <version>[17,21)</version>
+                                    <message>项目仅支持 JDK 17，21请检查 JAVA_HOME。</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>

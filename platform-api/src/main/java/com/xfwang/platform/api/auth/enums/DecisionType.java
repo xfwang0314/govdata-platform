@@ -5,7 +5,21 @@ package com.xfwang.platform.api.auth.enums;
  */
 public enum DecisionType {
 
-    PERMIT,
+    PERMIT("允许"),
 
-    DENY
+    DENY("拒绝");
+
+    private final String label;
+
+    DecisionType(String label) {
+        this.label = label;
+    }
+
+    public String code() {
+        return name();
+    }
+
+    public String label() {
+        return label;
+    }
 }

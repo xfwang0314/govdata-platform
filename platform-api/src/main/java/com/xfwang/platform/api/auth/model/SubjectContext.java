@@ -1,8 +1,9 @@
 package com.xfwang.platform.api.auth.model;
 
+import com.xfwang.platform.api.auth.enums.PrincipalType;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
 import java.io.Serial;
@@ -25,6 +26,10 @@ public class SubjectContext implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String tenantId;
+
+    private PrincipalType principalType;
+
+    private String principalId;
 
     private Long userId;
 

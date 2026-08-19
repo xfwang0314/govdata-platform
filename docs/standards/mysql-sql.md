@@ -62,7 +62,7 @@
 ## 3. 命名
 
 - 全部使用小写 `snake_case`，禁止拼音、驼峰和含糊缩写。
-- 表名使用“已登记领域前缀 + 单数业务名”，例如 `authz_policy`、`platform_secret`、
+- 表名使用“已登记领域前缀 + 单数业务名”，例如 `authz_policy_group`、`platform_secret`、
   `gd_datasource`、`gd_quality_rule`。
 - 主键使用 `{entity}_id`，禁止裸 `id`；引用字段与被引用主键同名。
 - 稳定业务编码使用 `{entity}_code`；Boolean 使用 `_flag`；JSON 使用 `_json`。
@@ -125,6 +125,8 @@ update_time datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '更新时
 
 - 默认 `NOT NULL`；只有“未知、尚未发生、不适用”才允许 `NULL`。
 - `NULL`、空字符串和零值必须有不同语义，禁止必填字符串 `DEFAULT ''`。
+- 允许从非空值恢复为 `NULL` 的字段必须同步检查 ORM 更新策略；MyBatis-Plus 默认会忽略更新对象中的
+  `NULL`，应使用字段级 `FieldStrategy.ALWAYS` 或显式 Mapper SQL，并覆盖数据库约束集成测试。
 - 未发生时间用 `NULL`，禁止零日期、`1970-01-01` 和 `0000-00-00`。
 - 时间统一保存 `Asia/Shanghai` 的 `datetime(3)`；MySQL、JDBC、JVM 和容器时区必须一致。
 - Boolean 使用 `tinyint(1)`、`_flag` 和 `CHECK (... IN (0,1))`。

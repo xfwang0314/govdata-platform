@@ -43,6 +43,9 @@ final class AttributeResolver {
         }
         return switch (name) {
             case "tenantId" -> subject.getTenantId();
+            case "principalType" -> subject.getPrincipalType() == null
+                ? null : subject.getPrincipalType().name();
+            case "principalId" -> subject.getPrincipalId();
             case "userId" -> subject.getUserId();
             case "deptId" -> subject.getDeptId();
             case "deptPathIds" -> subject.getDeptPathIds();
@@ -66,6 +69,9 @@ final class AttributeResolver {
             case "businessId" -> resource.getBusinessId();
             case "sourceModule" -> resource.getSourceModule();
             case "ownerDeptId" -> resource.getOwnerDeptId();
+            case "ownerUserId" -> resource.getOwnerUserId();
+            case "ownerDeptPathIds" -> resource.getOwnerDeptPathIds();
+            case "regionCode" -> resource.getRegionCode();
             case "classification" -> resource.getClassification();
             case "securityLevel" -> resource.getSecurityLevel();
             case "status" -> resource.getStatus();

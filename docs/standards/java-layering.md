@@ -98,6 +98,14 @@
 
 - Controller、消息、调度、MCP 等入口负责对应主体的功能权限。
 - ApplicationService 负责具体资源动作授权，列表查询同样必须应用授权约束。
+- 单资源动作使用 `ResourceAuthorize`；独立投影资源的列表查询由领域 application 提供授权范围模块，封装
+  Resource Type、Action、Purpose 与默认拒绝，再由拥有业务表的查询显式应用结构化资源范围。管理员的
+  `UNRESTRICTED` 范围不得退化成全量 ID 集合；受限范围不得通过逐资源对象决策计算。
+- 用户、部门等平台控制库类型范围允许使用 `@AbacDataScope`：授权模块只返回结构化范围，Mapper 注解显式
+  声明受信任列映射，由公共 MyBatis 组件在分页前编译条件；禁止授权模块返回 SQL 或推断领域列名。
+- 禁止用 AOP 在查询后过滤结果，也禁止把任意领域条件或授权中心返回的 SQL 注入通用 MyBatis 拦截器。
+- 注解所需的编译期授权编码由所属领域集中定义，枚举、授权目录、投影和调用处共同引用；禁止散落字符串，
+  也禁止建立跨领域的万能 `Constants` 类。
 - Entity 和 DomainService 不读取 LoginHelper、Sa-Token、HTTP 请求或线程登录状态。
 - Mapper 不承担业务授权；默认拒绝、DENY 优先和租户隔离是强制不变量。
 

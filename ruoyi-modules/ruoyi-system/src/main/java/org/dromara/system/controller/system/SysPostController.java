@@ -56,7 +56,7 @@ public class SysPostController extends BaseController {
     @SaCheckPermission("system:post:export")
     @PostMapping("/export")
     public void export(SysPostBo post, HttpServletResponse response) {
-        List<SysPostVo> list = postService.selectPostList(post);
+        List<SysPostVo> list = postService.selectPostExportList(post);
         ExcelUtil.exportExcel(list, "岗位数据", SysPostVo.class, response);
     }
 

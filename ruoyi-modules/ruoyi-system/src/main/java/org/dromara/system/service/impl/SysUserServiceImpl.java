@@ -18,6 +18,8 @@ import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.system.api.domain.UserDTO;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.system.api.UserService;
+import org.dromara.system.api.permission.DataAuthorizationScopeRequest;
+import org.dromara.system.api.permission.SystemAuthorizationResources;
 import org.dromara.common.core.utils.*;
 import org.dromara.common.mybatis.core.page.PageQuery;
 import org.dromara.common.core.domain.PageResult;
@@ -32,6 +34,7 @@ import org.dromara.system.domain.vo.SysUserExportVo;
 import org.dromara.system.domain.vo.SysUserVo;
 import org.dromara.system.mapper.*;
 import org.dromara.system.service.ISysUserService;
+import org.dromara.system.service.support.SystemDataAuthorizationGuard;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
@@ -55,6 +58,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     private final SysPostMapper postMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysUserPostMapper userPostMapper;
+    private final SystemDataAuthorizationGuard authorizationGuard;
 
     @Override
     public PageResult<SysUserVo> selectPageUserList(SysUserBo user, PageQuery pageQuery) {
@@ -290,15 +294,28 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
      */
     @Override
     public void checkUserDataScope(Long userId) {
+        checkUserDataScope(userId, SystemAuthorizationResources.VIEW);
+    }
+
+    @Override
+    public void checkUserDataScope(Long userId, String action) {
         if (ObjectUtil.isNull(userId)) {
             return;
         }
-        if (LoginHelper.isSuperAdmin()) {
-            return;
-        }
-        if (baseMapper.countUserById(userId) == 0) {
+        SysUser target = baseMapper.selectById(userId);
+        if (target == null) {
             throw new ServiceException("没有权限访问用户数据！");
         }
+        authorizationGuard.check(new DataAuthorizationScopeRequest(
+            SystemAuthorizationResources.USER, action,
+            SystemAuthorizationResources.USER_ADMINISTRATION), target.getDeptId(), target.getUserId());
+    }
+
+    @Override
+    public void checkUserCreateScope(Long deptId) {
+        authorizationGuard.check(new DataAuthorizationScopeRequest(
+            SystemAuthorizationResources.USER, SystemAuthorizationResources.CREATE,
+            SystemAuthorizationResources.USER_ADMINISTRATION), deptId, null);
     }
 
     /**
@@ -310,6 +327,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int insertUser(SysUserBo user) {
+        checkUserCreateScope(user.getDeptId());
         SysUser sysUser = MapstructUtils.convert(user, SysUser.class);
         // 新增用户信息
         int rows = baseMapper.insert(sysUser);
@@ -346,6 +364,11 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @CacheEvict(cacheNames = CacheNames.SYS_NICKNAME, key = "#user.userId")
     @Transactional(rollbackFor = Exception.class)
     public int updateUser(SysUserBo user) {
+        checkUserDataScope(user.getUserId(), SystemAuthorizationResources.UPDATE);
+        SysUser current = baseMapper.selectById(user.getUserId());
+        if (!Objects.equals(current.getDeptId(), user.getDeptId())) {
+            checkUserCreateScope(user.getDeptId());
+        }
         // 新增用户与角色管理
         insertUserRole(user, true);
         // 新增用户与岗位管理
@@ -368,6 +391,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void insertUserAuth(Long userId, Long[] roleIds) {
+        checkUserDataScope(userId, SystemAuthorizationResources.UPDATE);
         insertUserRole(userId, roleIds, true);
     }
 
@@ -380,6 +404,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
      */
     @Override
     public int updateUserStatus(Long userId, String status) {
+        checkUserDataScope(userId, SystemAuthorizationResources.UPDATE);
         return baseMapper.update(null,
             new LambdaUpdateWrapper<SysUser>()
                 .set(SysUser::getStatus, status)
@@ -428,6 +453,9 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
      */
     @Override
     public int resetUserPwd(Long userId, String password) {
+        if (!Objects.equals(LoginHelper.getUserId(), userId)) {
+            checkUserDataScope(userId, SystemAuthorizationResources.UPDATE);
+        }
         return baseMapper.update(null,
             new LambdaUpdateWrapper<SysUser>()
                 .set(SysUser::getPassword, password)
@@ -532,6 +560,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int deleteUserById(Long userId) {
+        checkUserDataScope(userId, SystemAuthorizationResources.DELETE);
         // 删除用户与角色关联
         userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId));
         // 删除用户与岗位表
@@ -555,7 +584,7 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     public int deleteUserByIds(Long[] userIds) {
         for (Long userId : userIds) {
             checkUserAllowed(userId);
-            checkUserDataScope(userId);
+            checkUserDataScope(userId, SystemAuthorizationResources.DELETE);
         }
         List<Long> ids = List.of(userIds);
         // 删除用户与角色关联

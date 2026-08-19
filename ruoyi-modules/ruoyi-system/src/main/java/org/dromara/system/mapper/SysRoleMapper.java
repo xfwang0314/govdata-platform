@@ -5,9 +5,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
-import org.dromara.common.mybatis.annotation.DataColumn;
-import org.dromara.common.mybatis.annotation.DataPermission;
 import org.dromara.common.mybatis.core.mapper.BaseMapperPlus;
+import org.dromara.common.mybatis.annotation.AbacDataScope;
+import org.dromara.common.mybatis.annotation.ScopeColumn;
+import org.dromara.system.api.permission.SystemAuthorizationResources;
 import org.dromara.system.domain.SysRole;
 import org.dromara.system.domain.vo.SysRoleVo;
 
@@ -39,9 +40,10 @@ public interface SysRoleMapper extends BaseMapperPlus<SysRole, SysRoleVo> {
      * @param queryWrapper 查询条件
      * @return 包含角色信息的分页结果
      */
-    @DataPermission({
-        @DataColumn(key = "deptName", value = "create_dept"),
-        @DataColumn(key = "userName", value = "create_by")
+    @AbacDataScope(resourceType = SystemAuthorizationResources.ROLE,
+        action = SystemAuthorizationResources.VIEW,
+        purpose = SystemAuthorizationResources.ROLE_ADMINISTRATION, columns = {
+        @ScopeColumn(attribute = "ownerDeptId", column = "owner_dept_id")
     })
     default Page<SysRoleVo> selectPageRoleList(@Param("page") Page<SysRole> page, @Param(Constants.WRAPPER) Wrapper<SysRole> queryWrapper) {
         return this.selectVoPage(page, queryWrapper);
@@ -53,11 +55,22 @@ public interface SysRoleMapper extends BaseMapperPlus<SysRole, SysRoleVo> {
      * @param queryWrapper 查询条件
      * @return 角色数据集合信息
      */
-    @DataPermission({
-        @DataColumn(key = "deptName", value = "create_dept"),
-        @DataColumn(key = "userName", value = "create_by")
+    @AbacDataScope(resourceType = SystemAuthorizationResources.ROLE,
+        action = SystemAuthorizationResources.VIEW,
+        purpose = SystemAuthorizationResources.ROLE_ADMINISTRATION, columns = {
+        @ScopeColumn(attribute = "ownerDeptId", column = "owner_dept_id")
     })
     default List<SysRoleVo> selectRoleList(@Param(Constants.WRAPPER) Wrapper<SysRole> queryWrapper) {
+        return this.selectVoList(queryWrapper);
+    }
+
+    /** 导出角色时使用独立动作执行 ABAC 范围。 */
+    @AbacDataScope(resourceType = SystemAuthorizationResources.ROLE,
+        action = SystemAuthorizationResources.EXPORT,
+        purpose = SystemAuthorizationResources.ROLE_ADMINISTRATION, columns = {
+        @ScopeColumn(attribute = "ownerDeptId", column = "owner_dept_id")
+    })
+    default List<SysRoleVo> selectRoleExportList(@Param(Constants.WRAPPER) Wrapper<SysRole> queryWrapper) {
         return this.selectVoList(queryWrapper);
     }
 
@@ -67,10 +80,6 @@ public interface SysRoleMapper extends BaseMapperPlus<SysRole, SysRoleVo> {
      * @param roleIds 角色ID列表
      * @return 匹配的角色数量
      */
-    @DataPermission({
-        @DataColumn(key = "deptName", value = "create_dept"),
-        @DataColumn(key = "userName", value = "create_by")
-    })
     default long selectRoleCount(List<Long> roleIds) {
         return this.selectCount(new LambdaQueryWrapper<SysRole>().in(SysRole::getRoleId, roleIds));
     }
@@ -81,10 +90,6 @@ public interface SysRoleMapper extends BaseMapperPlus<SysRole, SysRoleVo> {
      * @param roleId 角色ID
      * @return 对应的角色信息
      */
-    @DataPermission({
-        @DataColumn(key = "deptName", value = "create_dept"),
-        @DataColumn(key = "userName", value = "create_by")
-    })
     default SysRoleVo selectRoleById(Long roleId) {
         return this.selectVoById(roleId);
     }
@@ -98,7 +103,7 @@ public interface SysRoleMapper extends BaseMapperPlus<SysRole, SysRoleVo> {
     default List<SysRoleVo> selectRolesByUserId(Long userId) {
         return this.selectVoList(new LambdaQueryWrapper<SysRole>()
             .select(SysRole::getRoleId, SysRole::getRoleName, SysRole::getRoleKey,
-                SysRole::getRoleSort, SysRole::getDataScope, SysRole::getStatus)
+                SysRole::getRoleSort, SysRole::getStatus)
             .inSql(SysRole::getRoleId, this.buildRoleByUserSql(userId)));
     }
 

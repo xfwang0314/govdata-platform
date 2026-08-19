@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS gd_datasource
     environment          varchar(16)   NOT NULL COMMENT '环境：DEV/TEST/PROD',
     owner_dept_id        bigint        NOT NULL COMMENT '权属部门ID',
     access_mode          varchar(16)   NOT NULL DEFAULT 'READ_ONLY' COMMENT '访问模式：READ_ONLY/READ_WRITE',
-    classification_code varchar(32)   NOT NULL DEFAULT 'INTERNAL' COMMENT '数据分类编码',
+    classification_code varchar(32)   NOT NULL DEFAULT 'INTERNAL' COMMENT '安全分类编码',
     security_level       int           NOT NULL DEFAULT 1 COMMENT '安全等级1-5',
     status               varchar(32)   NOT NULL DEFAULT 'DISABLED' COMMENT '状态：ACTIVE/DISABLED',
     last_test_status     varchar(32)   NOT NULL DEFAULT 'NOT_TESTED' COMMENT '最近测试状态',

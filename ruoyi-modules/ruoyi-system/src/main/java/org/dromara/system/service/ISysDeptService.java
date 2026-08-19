@@ -49,14 +49,6 @@ public interface ISysDeptService {
     List<Tree<Long>> buildDeptTreeSelect(List<SysDeptVo> depts);
 
     /**
-     * 根据角色ID查询部门树信息
-     *
-     * @param roleId 角色ID
-     * @return 选中部门列表
-     */
-    List<Long> selectDeptListByRoleId(Long roleId);
-
-    /**
      * 根据部门ID查询信息
      *
      * @param deptId 部门ID
@@ -110,6 +102,9 @@ public interface ISysDeptService {
      * @param deptId 部门id
      */
     void checkDeptDataScope(Long deptId);
+
+    /** 校验当前主体是否可对目标部门执行指定 ABAC 动作。 */
+    void checkDeptDataScope(Long deptId, String action);
 
     /**
      * 新增保存部门信息

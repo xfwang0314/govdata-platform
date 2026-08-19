@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /** Grant 管理视图。 */
 @Value
@@ -19,4 +20,11 @@ public class GrantView {
     LocalDateTime effectiveTime;
     LocalDateTime expireTime;
     String status;
+    String grantorType;
+    String grantorId;
+    String conditionJson;
+    String revokeReason;
+    List<GrantScopeView> scopes;
+    LocalDateTime createTime;
+    LocalDateTime updateTime;
 }

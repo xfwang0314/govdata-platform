@@ -138,6 +138,12 @@ public interface ISysUserService {
      */
     void checkUserDataScope(Long userId);
 
+    /** 校验当前主体是否可对目标用户执行指定 ABAC 动作。 */
+    void checkUserDataScope(Long userId, String action);
+
+    /** 校验当前主体是否可在目标部门新增用户。 */
+    void checkUserCreateScope(Long deptId);
+
     /**
      * 新增用户信息
      *

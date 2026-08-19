@@ -50,10 +50,10 @@ Policy ID 和版本；策略发布或停用必须清理相关缓存。
 Grant 保留 `sourceType/sourceId`，但不复制业务协议。Delegation 的有效权限是用户权限、
 Agent 基础能力、本次委托范围和 ABAC 条件的交集。
 
-## 旧 data_scope
+## 统一数据范围
 
-旧 `data_scope` 继续保护 RuoYi 用户、部门、角色等系统管理列表。新 `govdata-*` 模块不得
-使用旧数据权限注解；它们通过 `platform-auth` 和 `govdata-query` 执行资源授权。
+旧 `data_scope` 已移除。需要平台控制库行级过滤的模块统一使用 `@AbacDataScope`；
+外部数据查询通过 `platform-auth` 和 `govdata-query` 执行资源授权与义务。
 
 当前实现细节和未完成项见 [platform-auth.md](platform-auth.md)。
 
