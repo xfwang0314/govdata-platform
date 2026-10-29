@@ -4,7 +4,7 @@ package com.xfwang.platform.api.auth.catalog;
 public enum ResourceNavigationCategory {
     TECHNICAL_DATA_ASSET("技术数据资产", 10),
     DATA_PRODUCT_SERVICE("数据产品", 20),
-    DATA_GOVERNANCE_OPERATION("数据治理作业", 30),
+    DATA_GOVERNANCE_OPERATION("元数据采集计划", 30),
     PLATFORM_MANAGEMENT("平台管理资源", 40);
 
     private final String label;
