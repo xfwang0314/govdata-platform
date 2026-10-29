@@ -19,6 +19,7 @@ import com.xfwang.platform.auth.application.options.view.AuthzOptionsView;
 import com.xfwang.platform.auth.application.options.view.AuthzOptionsView.AttributeItem;
 import com.xfwang.platform.auth.application.options.view.AuthzOptionsView.OptionItem;
 import com.xfwang.platform.auth.application.options.view.AuthzOptionsView.ResourceTypeItem;
+import com.xfwang.platform.auth.application.options.view.AuthzOptionsView.ResourceCategoryItem;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -43,6 +44,10 @@ public class AuthorizationOptionsQueryService {
         return AuthzOptionsView.builder()
             .resourceDomains(List.copyOf(domains.values()))
             .resourceModules(List.copyOf(modules.values()))
+            .resourceCategories(catalog.navigationCategories().stream()
+                .map(value -> ResourceCategoryItem.builder()
+                    .code(value.code()).label(value.label()).order(value.order()).build())
+                .toList())
             .resourceTypes(resourceTypes)
             .resourceStatuses(java.util.Arrays.stream(ResourceStatus.values())
                 .map(value -> item(value.label(), value.code())).toList())
@@ -81,6 +86,7 @@ public class AuthorizationOptionsQueryService {
             .domainLabel(definition.domainLabel())
             .sourceModule(definition.sourceModule())
             .moduleLabel(catalog.moduleLabel(definition.sourceModule()))
+            .categoryCode(catalog.navigationCategory(definition.sourceModule()).code())
             .typeCode(definition.typeCode())
             .typeLabel(definition.typeLabel())
             .selectionModes(definition.selectionModes().stream().map(Enum::name).sorted().toList())

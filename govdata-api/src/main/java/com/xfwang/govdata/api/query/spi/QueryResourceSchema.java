@@ -20,5 +20,6 @@ public class QueryResourceSchema {
     private String catalogName;
     private String schemaName;
     private String objectName;
+    private Integer currentRevisionNo;
     @Builder.Default private List<QueryFieldSchema> fields = new ArrayList<>();
 }

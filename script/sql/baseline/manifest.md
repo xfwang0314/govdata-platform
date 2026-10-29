@@ -14,6 +14,9 @@
 | 20 | `20_platform_auth.sql` | platform-auth | 平台授权 | 00 |
 | 21 | `21_platform_secret.sql` | platform-secret | 凭据管理 | 00 |
 | 30 | `30_govdata_datasource.sql` | govdata-datasource | 数据源 | 20、21 |
+| 31 | `31_govdata_metadata.sql` | govdata-metadata | 版本化元数据目录 | 20、30 |
+| 32 | `32_govdata_metadata_harvest.sql` | govdata-metadata-harvest | 元数据采集计划与运行 | 30、31 |
+| 33 | `33_govdata_query.sql` | govdata-query | 查询访问追加审计 | 20、30、31 |
 
 ## 规则
 

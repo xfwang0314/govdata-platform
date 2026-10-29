@@ -20,6 +20,7 @@ public class AuthzOptionsView implements Serializable {
 
     private List<OptionItem> resourceDomains;
     private List<OptionItem> resourceModules;
+    private List<ResourceCategoryItem> resourceCategories;
     private List<ResourceTypeItem> resourceTypes;
     private List<OptionItem> resourceStatuses;
     private List<OptionItem> classifications;
@@ -45,6 +46,7 @@ public class AuthzOptionsView implements Serializable {
         private String domainLabel;
         private String sourceModule;
         private String moduleLabel;
+        private String categoryCode;
         private String typeCode;
         private String typeLabel;
         private List<String> selectionModes;
@@ -52,6 +54,18 @@ public class AuthzOptionsView implements Serializable {
         private List<OptionItem> actions;
         private List<OptionItem> purposes;
         private List<AttributeItem> attributes;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ResourceCategoryItem implements Serializable {
+        @Serial
+        private static final long serialVersionUID = 1L;
+        private String code;
+        private String label;
+        private Integer order;
     }
 
     @Data

@@ -4,8 +4,10 @@ import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.xfwang.platform.api.auth.model.ResourceDescriptor;
 import com.xfwang.platform.api.auth.service.ResourceRegistry;
 import com.xfwang.platform.auth.application.resource.ResourceQueryService;
+import com.xfwang.platform.auth.application.resource.ResourceDirectoryQueryService;
 import com.xfwang.platform.auth.application.resource.query.ResourceQuery;
 import com.xfwang.platform.auth.application.resource.view.ResourceTreeNode;
+import com.xfwang.platform.auth.application.resource.view.ResourceDirectoryNode;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
 import org.dromara.common.core.domain.PageResult;
@@ -34,6 +36,7 @@ public class AuthzResourceController {
 
     private final ResourceRegistry resourceRegistry;
     private final ResourceQueryService resourceQueryService;
+    private final ResourceDirectoryQueryService resourceDirectoryQueryService;
 
     @SaCheckPermission("platform:auth:resource:query")
     @GetMapping("/page")
@@ -54,5 +57,19 @@ public class AuthzResourceController {
     public R<List<ResourceTreeNode>> tree(@RequestParam String resourceType,
                                           @RequestParam(required = false, defaultValue = "ACTIVE") String status) {
         return R.ok(resourceQueryService.tree(resourceType, status));
+    }
+
+    @SaCheckPermission("platform:auth:resource:query")
+    @GetMapping("/directory/roots")
+    public R<List<ResourceDirectoryNode>> directoryRoots(@RequestParam String categoryCode,
+                                                          @RequestParam(defaultValue = "ACTIVE") String status) {
+        return R.ok(resourceDirectoryQueryService.roots(categoryCode, status));
+    }
+
+    @SaCheckPermission("platform:auth:resource:query")
+    @GetMapping("/directory/children")
+    public R<List<ResourceDirectoryNode>> directoryChildren(@RequestParam Long parentId,
+                                                             @RequestParam(defaultValue = "ACTIVE") String status) {
+        return R.ok(resourceDirectoryQueryService.children(parentId, status));
     }
 }

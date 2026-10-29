@@ -3,9 +3,17 @@
 - 状态：领域词汇 v1
 - 适用范围：平台授权上下文
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-13
+- 最后更新：2026-09-07
 
 平台授权上下文为所有模块提供统一、可审计的运行时授权，不承担登录、共享审批或领域业务。
+
+## 当前实施边界
+
+- 已实现 Resource、Policy Group/Version、ABAC、AuthorizationGrant、批量资源范围和授权决策审计。
+- MCP 当前使用 `OWNER_INHERIT`：实时用户权限与凭据模块上限、Tool 风险与租户边界取交集；它不是正式
+  Delegation 记录，也不会给 Agent 额外权限。
+- 显式 Delegation、BreakGlass 和属性 Schema 注册表仍是后续能力。完整模块状态以
+  [当前实施状态](../../implementation-status.md) 为准。
 
 ## Language
 
@@ -26,6 +34,12 @@ _Avoid_: 把部门或角色伪装成登录账号
 需要独立授权、挂载策略、审计或参与授权关系的领域对象最小投影，仅包含稳定标识和授权属性；
 业务数据行不是 Resource。
 _Avoid_: 统一业务实体、元数据副本
+
+**Resource Navigation Category**:
+授权管理端真实资源树的后端受控虚拟根分类，例如技术数据资产、数据产品、数据治理作业、平台管理资源。
+分类下面直接按需加载真实 Resource；它没有 Resource ID，不参与 Grant、Policy、父子关系或授权继承，
+资源间层级只由 Resource `parentId` 表达。来源模块和资源类型保留为筛选维度，不作为树节点。
+_Avoid_: 资源父节点、前端硬编码目录、`sys_dict` 分类
 
 **Policy Group**:
 授权管理页面和生命周期操作使用的稳定容器；自定义策略与模板策略都必须归属策略组。创建来源只决定编辑器与
@@ -150,7 +164,7 @@ _Avoid_: 用管理员直通替代跨租户审批
 - 单资源决策、投影资源范围、平台控制库行范围和 Grant 必须复用同一个 `SubjectSelectorMatcher`；运行时 Policy
   的 action、purpose、subject 候选预筛选及资源继承命中必须复用 `RuntimePolicyRuleMatcher`。各入口只能保留自身的
   资源层级加载、条件解释和输出转换，禁止复制主体类型或 `includeChildren` 的匹配分支。
-- 来源模块只负责管理端目录筛选，不是资源父节点或授权条件；跨模块层级统一使用 Resource `parentId`，
+- Resource Navigation Category 只负责管理端目录根分组，来源模块只负责筛选；二者都不是资源父节点或授权条件。跨模块层级统一使用 Resource `parentId`，
   资源选择器展示祖先路径，避免选择 Schema、表或列时丢失其数据源上下文。
 - 不需要对象级治理、Grant 和独立审计的类型资源可以不投影；运行时由业务模块从可信业务对象构造
   `ResourceDescriptor` 并通过 `resourceContext` 求值。该能力只对声明 `TYPE_CONTEXT_DECISION` 的类型开放，

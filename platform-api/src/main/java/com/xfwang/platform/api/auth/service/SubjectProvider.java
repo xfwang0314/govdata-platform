@@ -8,4 +8,7 @@ import com.xfwang.platform.api.auth.model.SubjectContext;
 public interface SubjectProvider {
 
     SubjectContext currentSubject();
+
+    /** 基于用户当前授权属性构建 HUMAN 主体，不依赖登录会话。 */
+    SubjectContext subjectForUser(String tenantId, Long userId);
 }

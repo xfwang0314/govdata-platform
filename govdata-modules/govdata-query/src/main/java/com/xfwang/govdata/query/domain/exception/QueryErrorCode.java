@@ -8,6 +8,7 @@ import org.dromara.common.core.exception.ErrorCode;
 @Getter
 @AllArgsConstructor
 public enum QueryErrorCode implements ErrorCode {
+    AUDIT_UNAVAILABLE("GOV-QUERY-0503-AUDIT", "查询访问审计不可用", 503),
     INVALID_REQUEST("GOV-QUERY-0400", "查询请求无效", 400),
     AUTHORIZATION_REQUIRED("GOV-QUERY-0403", "缺少有效资源授权", 403),
     FIELD_FORBIDDEN("GOV-QUERY-0403-01", "查询字段未被授权", 403),

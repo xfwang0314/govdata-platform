@@ -18,6 +18,8 @@
 
     <modules>
         <module>govdata-datasource</module>
+        <module>govdata-metadata</module>
+        <module>govdata-metadata-harvest</module>
         <module>govdata-query</module>
     </modules>
 </project>

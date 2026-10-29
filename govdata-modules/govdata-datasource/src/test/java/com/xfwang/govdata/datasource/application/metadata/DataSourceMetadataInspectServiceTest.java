@@ -1,5 +1,11 @@
 package com.xfwang.govdata.datasource.application.metadata;
 
+import com.xfwang.govdata.api.metadata.CollectedMetadataNamespace;
+import com.xfwang.govdata.api.metadata.CollectedMetadataTable;
+import com.xfwang.govdata.api.metadata.MetadataDiscoveryRequest;
+import com.xfwang.govdata.api.metadata.MetadataDiscoveryResult;
+import com.xfwang.govdata.api.metadata.MetadataDiscoverySink;
+import com.xfwang.govdata.api.metadata.MetadataObjectType;
 import com.xfwang.govdata.datasource.application.metadata.view.TableSchemaView;
 import com.xfwang.govdata.datasource.application.metadata.view.TableView;
 import com.xfwang.govdata.datasource.domain.connector.ConnectorDescriptor;
@@ -12,6 +18,9 @@ import com.xfwang.govdata.datasource.infrastructure.connector.model.TableMeta;
 import com.xfwang.govdata.datasource.infrastructure.connector.model.TableSchema;
 import com.xfwang.govdata.datasource.infrastructure.connector.registry.MetadataInspectorRegistry;
 import com.xfwang.govdata.datasource.infrastructure.persistence.mapper.DataSourceInstanceMapper;
+import com.xfwang.platform.api.auth.enums.PrincipalType;
+import com.xfwang.platform.api.auth.model.SubjectContext;
+import com.xfwang.platform.api.auth.service.SubjectProvider;
 import org.dromara.common.core.exception.ServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -19,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -27,6 +37,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("dev")
@@ -38,6 +50,7 @@ class DataSourceMetadataInspectServiceTest {
     private ConnectorMetadataInspector inspector;
     private ThreadPoolTaskExecutor executor;
     private DataSourceMetadataInspectService service;
+    private SubjectProvider subjectProvider;
 
     @BeforeEach
     void setUp() {
@@ -45,6 +58,9 @@ class DataSourceMetadataInspectServiceTest {
         inspectorRegistry = mock(MetadataInspectorRegistry.class);
         connectorCatalog = mock(ConnectorCatalog.class);
         inspector = mock(ConnectorMetadataInspector.class);
+        subjectProvider = mock(SubjectProvider.class);
+        when(subjectProvider.currentSubject()).thenReturn(SubjectContext.builder().tenantId("103")
+            .principalType(PrincipalType.HUMAN).principalId("1").userId(1L).build());
 
         executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(2);
@@ -53,7 +69,7 @@ class DataSourceMetadataInspectServiceTest {
         executor.initialize();
 
         service = new DataSourceMetadataInspectService(
-            instanceMapper, inspectorRegistry, connectorCatalog, executor
+            instanceMapper, inspectorRegistry, connectorCatalog, subjectProvider, executor
         );
     }
 
@@ -107,7 +123,11 @@ class DataSourceMetadataInspectServiceTest {
             .build();
 
         when(inspectorRegistry.require("mysql", "1.0")).thenReturn(inspector);
-        when(inspector.listTables(any())).thenReturn(inspectResult);
+        when(inspector.listTables(any())).thenAnswer(invocation -> {
+            assertThat(((com.xfwang.govdata.datasource.infrastructure.connector.model.MetadataInspectRequest)
+                invocation.getArgument(0)).getTenantId()).isEqualTo("000000");
+            return inspectResult;
+        });
 
         List<TableView> result = service.listTables(1L, "demo_db", null, "sys_%", "TABLE", 0, 10);
 
@@ -159,9 +179,97 @@ class DataSourceMetadataInspectServiceTest {
         assertThat(result.get(0).getColumns().get(0).isPrimaryKey()).isTrue();
     }
 
+    @Test
+    void discoverBuildsExplicitNamespaceHierarchyAndCarriesDatasourceResource() {
+        DataSourceInstance instance = activeInstance();
+        when(instanceMapper.selectById(1L)).thenReturn(instance);
+        when(connectorCatalog.require("mysql")).thenReturn(activeDescriptor());
+        when(inspectorRegistry.require("mysql", "1.0")).thenReturn(inspector);
+
+        TableMeta table = TableMeta.builder().catalog("government").schema("public")
+            .tableName("citizen").tableType("TABLE").build();
+        ColumnMeta column = ColumnMeta.builder().columnName("citizen_id").dataType("BIGINT")
+            .ordinalPosition(1).primaryKey(true).build();
+        when(inspector.listTables(any())).thenReturn(MetadataInspectResult.builder()
+            .success(true).tables(List.of(table)).total(1L).build());
+        when(inspector.inspectColumns(any(), eq(List.of("citizen"))))
+            .thenReturn(MetadataInspectResult.builder().success(true)
+                .tableSchemas(List.of(TableSchema.builder().table(table).columns(List.of(column)).build())).build());
+
+        DiscoveryCollector collector = new DiscoveryCollector();
+        MetadataDiscoveryResult result = service.discover(MetadataDiscoveryRequest.builder()
+            .harvestRunId(10L).datasourceId(1L).maxTableCount(100).build(), collector);
+
+        assertThat(result.getDatasourceResourceId()).isEqualTo(101L);
+        assertThat(collector.namespaces).hasSize(2);
+        assertThat(collector.namespaces).anySatisfy(catalog -> {
+            assertThat(catalog.getNamespaceType()).isEqualTo(MetadataObjectType.CATALOG);
+            assertThat(catalog.getNamespaceName()).isEqualTo("government");
+        });
+        assertThat(collector.namespaces).anySatisfy(schema -> {
+            assertThat(schema.getNamespaceType()).isEqualTo(MetadataObjectType.SCHEMA);
+            assertThat(schema.getNamespaceName()).isEqualTo("public");
+            assertThat(schema.getParentCanonicalKey()).contains("CATALOG");
+        });
+        assertThat(collector.tables).singleElement().satisfies(value -> {
+            assertThat(value.getTableName()).isEqualTo("citizen");
+            assertThat(value.getTableType()).isEqualTo("TABLE");
+            assertThat(value.getColumns()).singleElement()
+                .satisfies(field -> assertThat(field.getColumnName()).isEqualTo("citizen_id"));
+        });
+    }
+
+    @Test
+    void discoverInspectsSameNamedTablesWithinTheirOwnCatalog() {
+        DataSourceInstance instance = activeInstance();
+        when(instanceMapper.selectById(1L)).thenReturn(instance);
+        when(connectorCatalog.require("mysql")).thenReturn(activeDescriptor());
+        when(inspectorRegistry.require("mysql", "1.0")).thenReturn(inspector);
+        TableMeta first = TableMeta.builder().catalog("catalog_a").tableName("config").tableType("TABLE").build();
+        TableMeta second = TableMeta.builder().catalog("catalog_b").tableName("config").tableType("TABLE").build();
+        when(inspector.listTables(any())).thenReturn(MetadataInspectResult.builder()
+            .success(true).tables(List.of(first, second)).total(2L).build());
+        when(inspector.inspectColumns(any(), any())).thenAnswer(invocation -> {
+            com.xfwang.govdata.datasource.infrastructure.connector.model.MetadataInspectRequest request =
+                invocation.getArgument(0);
+            TableMeta table = TableMeta.builder().catalog(request.getCatalog()).tableName("config")
+                .tableType("TABLE").build();
+            return MetadataInspectResult.builder().success(true)
+                .tableSchemas(List.of(TableSchema.builder().table(table).columns(List.of()).build())).build();
+        });
+
+        DiscoveryCollector collector = new DiscoveryCollector();
+        service.discover(MetadataDiscoveryRequest.builder()
+            .harvestRunId(10L).datasourceId(1L).build(), collector);
+
+        assertThat(collector.namespaces).extracting(CollectedMetadataNamespace::getNamespaceName)
+            .containsExactly("catalog_a", "catalog_b");
+        assertThat(collector.tables).hasSize(2).allSatisfy(table ->
+            assertThat(table.getTableName()).isEqualTo("config"));
+        verify(inspector, times(2)).inspectColumns(any(), eq(List.of("config")));
+    }
+
+    private static final class DiscoveryCollector implements MetadataDiscoverySink {
+        private final List<CollectedMetadataNamespace> namespaces = new ArrayList<>();
+        private final List<CollectedMetadataTable> tables = new ArrayList<>();
+
+        @Override
+        public void acceptNamespaces(List<CollectedMetadataNamespace> values) {
+            namespaces.addAll(values);
+        }
+
+        @Override
+        public void acceptTables(List<CollectedMetadataTable> values) {
+            tables.addAll(values);
+        }
+    }
+
     private DataSourceInstance activeInstance() {
         DataSourceInstance instance = new DataSourceInstance();
         instance.setDatasourceId(1L);
+        instance.setTenantId("000000");
+        instance.setAuthzResourceId(101L);
+        instance.setOwnerDeptId(103L);
         instance.setDatasourceCode("ds_mysql");
         instance.setDatasourceName("MySQL 测试源");
         instance.setConnectorCode("mysql");

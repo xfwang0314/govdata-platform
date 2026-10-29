@@ -1,34 +1,76 @@
 # 元数据
 
-- 状态：领域词汇 v1
-- 适用范围：元数据上下文
+- 状态：领域词汇 v3
+- 适用范围：元数据与元数据采集上下文
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-01
+- 最后更新：2026-08-23
 
-元数据上下文保存平台规范化的技术资产事实，并区分采集属性与人工治理属性。
+元数据上下文维护可信当前技术事实、稳定身份、自动修订历史和治理属性；采集上下文只负责发现执行。
 
 ## Language
 
-**Metadata Asset**:
-可被识别、治理和引用的技术对象，如 Database、Schema、Table 或 Column。
-_Avoid_: Resource、Dataset
+**Metadata Asset**: 可稳定识别和引用的 Catalog、Schema、Table 或 Column。_Avoid_: Resource、快照行。
 
-**Dataset**:
-面向业务组织和共享的一组数据资产，可包含多个表且不等同于物理表。
-_Avoid_: Table
+**Metadata Hierarchy**: `DataSource → Catalog? → Schema? → Table → Column`；可选层级由 Connector 决定，
+不得创建占位 Catalog/Schema。
 
-**Discovery Run**:
-通过 Connector 对数据源执行的一次有边界、可审计的元数据发现。
-_Avoid_: 同步任务
+**Metadata Directory Tree**: 将数据源展示信息与元数据当前状态组合出的导航读模型。_Avoid_: 第二套资源树、业务目录。
 
-**Metadata Snapshot**:
-某次发现运行观察到的资产结构状态。
-_Avoid_: 当前表结构副本
+**Database Metadata Page**: 三栏 Explore 工作区，左侧按 Connector 类型、数据源连接与真实 Catalog/Schema
+定位范围，命名空间下提供数据表与列分类。中间共用服务端查询、筛选和分页，可切换卡片与紧凑列表；
+点击资产在右侧预览，完整详情、版本比对及治理维护仍使用原有受控接口。窄屏预览改为抽屉。
+分类数量只从当前授权裁剪树计算，未加载连接不展示未经确认的资产数。
+列继承表授权；列查询的命名空间范围在分页前转换为父表ID范围，并与获授权父表范围取交集，单个IN最多500项。
+导航分类不创建业务资产或Resource，不新增业务表；文件、Excel和发布API不混入此入口。
 
-**Governance Attribute**:
-由治理人员维护且不得被采集覆盖的名称、责任人、密级或业务说明。
-_Avoid_: 采集属性
+**Current Technical Metadata**: 最近一次成功观察后立即生效的源端技术事实。_Avoid_: 待发布快照。
 
-**Lineage Edge**:
-两个 Metadata Asset 之间具有方向和来源依据的数据流关系。
-_Avoid_: parentId
+**Table Revision**: 单张稳定表在技术内容变化时自动追加的审计版本，包含当时完整字段快照。_Avoid_: 运行版本、API绑定版本。
+
+**Column Revision**: 稳定字段自身发生技术变化时递增的审计序号；不具有独立发布状态。
+
+**Change Level**: `DOCUMENTATION_ONLY`、`NON_BREAKING` 或 `BREAKING`，与修订号相互独立。
+
+**Change Issue**: 高风险变化产生的可去重处置事项；状态为 `OPEN/ACKNOWLEDGED/REMEDIATING/RESOLVED/DISMISSED`，不阻塞当前元数据。
+
+**Discovery Run**: 对一个数据源执行的一次有边界、可审计发现。只有完整成功运行可执行缺失检测。
+
+**Governance Attribute**: 人工维护的展示名、责任人、密级或业务说明，采集不得覆盖。
+
+## 不变量
+
+- DataSource 由数据源模块拥有并已投影 Resource；元数据不复制 DataSource Asset/Resource。
+- Catalog/Schema/Table 以 DataSource Resource 为根逐级投影；Column 不投影 Resource，继承表级可见性。
+- 当前技术事实按成功批次立即可见；一张表及其全部字段在同一事务中原子生效。
+- 下游只绑定稳定表/字段 ID，不固定历史修订；元数据状态不集中阻断下游运行。
+- 删除字段或表先标记 `MISSING`；再次发现且身份连续时恢复原稳定 ID，不作为新增。
+- `OUT_OF_SCOPE` 只表示当前计划不再观察，既有元数据和下游服务继续可用。
+- 一个数据源允许配置多个采集计划，以不同范围、规则和调度承载独立观察任务；同一数据源同一时刻只允许一个采集运行。
+- 采集计划的数据库（Catalog）、Schema、表范围各自支持纳入或排除的受控正则，执行时对完整对象名称匹配；正则只用于采集范围，不进入 SQL。
+- 定时采集先取得计划创建者当前主体，再在计划租户上下文中执行；异步 Connector 探测显式传递同一租户。默认单实例 Quartz 内存调度在启动注册计划前关闭上次进程遗留的运行占用。
+- 完整全范围运行出现大规模表消失时必须暂停 `MISSING` 生效并将 Run 标记为 `ANOMALOUS`；阈值只由后端配置。
+- 采集写入必须批量化，禁止 N+1 和逐行 `insert/update`；普通批次不超过 500 张表。
+- 原始归档可配置保留期、去重和冷存储，不包含凭据或样本数据。
+- 下游模块拥有消费者与依赖事实；元数据只保存通过稳定契约提交、可由来源模块重建的影响投影。
+
+## 当前实施范围
+
+目录模块使用 9 张表：资产、Catalog、Schema、Table、Column、表修订、修订字段快照、变更问题、下游影响投影。
+采集模块使用 6 张表：计划、计划修订、规则、运行、运行失败、原始结果。File、Dataset、血缘及业务目录等待实际
+用例再引入。
+
+## 资产内版本入口（2026-10-28）
+
+删除独立“修订与变更”菜单和页面，统一从元数据目录表资产行的“查看版本”打开抽屉，
+保留自动修订、两版本比对、关联变更问题及处置。修订产生规则和历史数据不变。
+变更问题分页改为 `GET /govdata/metadata/tables/{tableAssetId}/change-issues`，
+移除旧 `/govdata/metadata/change-issues` GET 接口及其查询对象，后端继续验证表可见性。
+原菜单20300改为目录20200下的版本查看权限，20301至20303迁到目录下，角色绑定保留；
+已有环境执行 `20261028_002_merge_metadata_history_into_catalog.sql`，前后端配套发布。
+验收：从两张表分别打开版本应显示对应表记录；仅有修订查看权限时不请求变更问题，
+无表可见性时拒绝读取，版本详情和问题处置仍分别校验原有权限。
+
+## 详情与版本展示优化（2026-10-28）
+
+完整详情统一为只读，治理属性从目录预览面板编辑。详情按概览、字段结构、下游影响分页签展示；下游影响按需加载并服务端分页。
+查看版本保留独立权限，修订历史和变更问题分别分页、独立处理加载错误；支持单次修订字段结构查看、跨页选择两个修订比对。比对按字段属性展示默认值、注释、顺序、类型等变化，加载失败不得显示为版本一致。本次无接口和数据库结构变更。

@@ -24,6 +24,7 @@ import com.xfwang.platform.auth.domain.entity.AuthzResource;
 import com.xfwang.platform.auth.domain.policy.PolicyConditionEvaluator;
 import com.xfwang.platform.auth.domain.policy.model.PolicyConditionGroup;
 import com.xfwang.platform.auth.domain.service.AdministratorAuthorizationPolicy;
+import com.xfwang.platform.auth.domain.exception.AuthorizationErrorCode;
 import com.xfwang.platform.auth.domain.service.SubjectSelectorMatcher;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzDecisionLogMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzGrantMapper;
@@ -34,7 +35,6 @@ import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRun
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzResourceMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.dromara.common.core.exception.GlobalErrorCode;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.common.core.utils.StringUtils;
 import org.slf4j.MDC;
@@ -80,6 +80,10 @@ public class DefaultAuthorizationService implements AuthorizationService {
         long start = System.currentTimeMillis();
         SubjectContext subject = request == null || request.getSubject() == null
             ? subjectProvider.currentSubject() : request.getSubject();
+        // 将本次决策实际使用的可信主体快照保留给后续行条件和凭据解析，禁止执行阶段另取主体。
+        if (request != null && request.getSubject() == null) {
+            request.setSubject(subject);
+        }
         if (request == null || StringUtils.isBlank(request.getAction())
             || (request.getResourceId() == null) == (request.getResource() == null)) {
             return complete(request, subject, null, deny("AUTHZ_REQUEST_INVALID", "资源和动作不能为空"), start);
@@ -210,7 +214,7 @@ public class DefaultAuthorizationService implements AuthorizationService {
     public void check(AccessRequest request) {
         AccessDecision decision = decide(request);
         if (!decision.isAllowed()) {
-            throw new ServiceException(GlobalErrorCode.FORBIDDEN, decision.getReason());
+            throw new ServiceException(AuthorizationErrorCode.ACCESS_DENIED, decision.getReason());
         }
     }
 

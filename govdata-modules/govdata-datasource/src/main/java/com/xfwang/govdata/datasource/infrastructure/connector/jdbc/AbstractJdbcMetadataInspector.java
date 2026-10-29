@@ -201,7 +201,7 @@ public abstract class AbstractJdbcMetadataInspector extends AbstractConnectorSup
                 List<TableMeta> pagedTables = new ArrayList<>();
                 long total = 0;
 
-                try (ResultSet rs = meta.getTables(null, null, pattern, types)) {
+                try (ResultSet rs = meta.getTables(request.getCatalog(), request.getSchema(), pattern, types)) {
                     while (rs.next()) {
                         if (total < offset) {
                             total++;
@@ -281,13 +281,13 @@ public abstract class AbstractJdbcMetadataInspector extends AbstractConnectorSup
                     List<ColumnMeta> columns = new ArrayList<>();
                     Set<String> pkNames = new HashSet<>();
                     
-                    try (ResultSet rsPk = meta.getPrimaryKeys(null, null, tableName)) {
+                    try (ResultSet rsPk = meta.getPrimaryKeys(request.getCatalog(), request.getSchema(), tableName)) {
                         while (rsPk.next()) {
                             pkNames.add(rsPk.getString("COLUMN_NAME"));
                         }
                     }
 
-                    try (ResultSet rs = meta.getColumns(null, null, tableName, null)) {
+                    try (ResultSet rs = meta.getColumns(request.getCatalog(), request.getSchema(), tableName, null)) {
                         while (rs.next()) {
                             String colName = rs.getString("COLUMN_NAME");
                             String isNullableStr = rs.getString("IS_NULLABLE");
@@ -308,6 +308,8 @@ public abstract class AbstractJdbcMetadataInspector extends AbstractConnectorSup
                     }
                     
                     TableMeta tableMeta = TableMeta.builder()
+                            .catalog(request.getCatalog())
+                            .schema(request.getSchema())
                             .tableName(tableName)
                             .build();
 

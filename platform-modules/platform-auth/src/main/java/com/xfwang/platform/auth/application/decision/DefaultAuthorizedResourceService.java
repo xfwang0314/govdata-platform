@@ -3,6 +3,7 @@ package com.xfwang.platform.auth.application.decision;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.xfwang.platform.api.auth.enums.DecisionType;
+import com.xfwang.platform.api.auth.enums.GrantStatus;
 import com.xfwang.platform.api.auth.model.AuthorizedResourceQuery;
 import com.xfwang.platform.api.auth.model.AuthorizedResourceScope;
 import com.xfwang.platform.api.auth.model.EnvironmentContext;
@@ -14,9 +15,14 @@ import com.xfwang.platform.auth.domain.entity.AuthzPolicyRuntimeResource;
 import com.xfwang.platform.auth.domain.entity.AuthzPolicyRuntimeRule;
 import com.xfwang.platform.auth.domain.entity.AuthzPolicyRuntimeSubject;
 import com.xfwang.platform.auth.domain.entity.AuthzResource;
+import com.xfwang.platform.auth.domain.entity.AuthzGrant;
+import com.xfwang.platform.auth.domain.entity.AuthzGrantScope;
 import com.xfwang.platform.auth.domain.policy.PolicyConditionEvaluator;
 import com.xfwang.platform.auth.domain.policy.model.PolicyConditionGroup;
 import com.xfwang.platform.auth.domain.service.AdministratorAuthorizationPolicy;
+import com.xfwang.platform.auth.domain.service.SubjectSelectorMatcher;
+import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzGrantMapper;
+import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzGrantScopeMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRuntimeResourceMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRuntimeRuleMapper;
 import com.xfwang.platform.auth.infrastructure.persistence.mapper.AuthzPolicyRuntimeSubjectMapper;
@@ -54,6 +60,9 @@ public class DefaultAuthorizedResourceService implements AuthorizedResourceServi
     private final PolicyConditionEvaluator conditionEvaluator;
     private final AuthorizationJsonCodec jsonCodec;
     private final RuntimePolicyRuleMatcher runtimeRuleMatcher;
+    private final SubjectSelectorMatcher subjectMatcher;
+    private final AuthzGrantMapper grantMapper;
+    private final AuthzGrantScopeMapper grantScopeMapper;
 
     @Override
     public AuthorizedResourceScope resolveScope(AuthorizedResourceQuery query) {
@@ -73,19 +82,32 @@ public class DefaultAuthorizedResourceService implements AuthorizedResourceServi
         List<AuthzPolicyRuntimeRule> rules = ruleMapper.selectList(
             new LambdaQueryWrapper<AuthzPolicyRuntimeRule>()
                 .eq(AuthzPolicyRuntimeRule::getResourceType, query.getResourceType()));
-        if (rules.isEmpty()) {
-            return AuthorizedResourceScope.restricted(Set.of());
-        }
         Set<Long> groupIds = rules.stream().map(AuthzPolicyRuntimeRule::getPolicyGroupId).collect(Collectors.toSet());
-        Map<Long, List<AuthzPolicyRuntimeSubject>> subjects = subjectMapper.selectList(
-                new LambdaQueryWrapper<AuthzPolicyRuntimeSubject>()
-                    .in(AuthzPolicyRuntimeSubject::getPolicyGroupId, groupIds))
-            .stream().collect(Collectors.groupingBy(AuthzPolicyRuntimeSubject::getPolicyGroupId));
+        Map<Long, List<AuthzPolicyRuntimeSubject>> subjects = groupIds.isEmpty() ? Map.of()
+            : subjectMapper.selectList(new LambdaQueryWrapper<AuthzPolicyRuntimeSubject>()
+                .in(AuthzPolicyRuntimeSubject::getPolicyGroupId, groupIds)).stream()
+                .collect(Collectors.groupingBy(AuthzPolicyRuntimeSubject::getPolicyGroupId));
         Set<Long> ruleIds = rules.stream().map(AuthzPolicyRuntimeRule::getRuntimeRuleId).collect(Collectors.toSet());
-        Map<Long, List<AuthzPolicyRuntimeResource>> resources = runtimeResourceMapper.selectList(
-                new LambdaQueryWrapper<AuthzPolicyRuntimeResource>()
-                    .in(AuthzPolicyRuntimeResource::getRuntimeRuleId, ruleIds))
-            .stream().collect(Collectors.groupingBy(AuthzPolicyRuntimeResource::getRuntimeRuleId));
+        Map<Long, List<AuthzPolicyRuntimeResource>> resources = ruleIds.isEmpty() ? Map.of()
+            : runtimeResourceMapper.selectList(new LambdaQueryWrapper<AuthzPolicyRuntimeResource>()
+                .in(AuthzPolicyRuntimeResource::getRuntimeRuleId, ruleIds)).stream()
+                .collect(Collectors.groupingBy(AuthzPolicyRuntimeResource::getRuntimeRuleId));
+        LocalDateTime now = LocalDateTime.now();
+        List<AuthzGrant> grants = grantMapper.selectList(new LambdaQueryWrapper<AuthzGrant>()
+                .eq(AuthzGrant::getStatus, GrantStatus.ACTIVE.code())
+                .le(AuthzGrant::getEffectiveTime, now)
+                .and(value -> value.isNull(AuthzGrant::getExpireTime).or().ge(AuthzGrant::getExpireTime, now)))
+            .stream()
+            .filter(grant -> subjectMatcher.matches(
+                grant.getGranteeType(), grant.getGranteeId(), false, subject))
+            .filter(grant -> Objects.equals(query.getPurpose(), grant.getPurpose()))
+            .toList();
+        Set<Long> grantIds = grants.stream().map(AuthzGrant::getGrantId).collect(Collectors.toSet());
+        Map<Long, List<AuthzGrantScope>> grantScopes = grantIds.isEmpty() ? Map.of()
+            : grantScopeMapper.selectList(new LambdaQueryWrapper<AuthzGrantScope>()
+                .in(AuthzGrantScope::getGrantId, grantIds)
+                .eq(AuthzGrantScope::getActionCode, query.getAction())).stream()
+                .collect(Collectors.groupingBy(AuthzGrantScope::getGrantId));
         Map<Long, AuthzResource> index = loadResourceIndex(targets);
         EnvironmentContext environment = EnvironmentContext.builder()
             .purpose(query.getPurpose()).requestTime(LocalDateTime.now()).build();
@@ -109,7 +131,8 @@ public class DefaultAuthorizedResourceService implements AuthorizedResourceServi
                 }
                 permit = true;
             }
-            if (permit && !deny) {
+            boolean grantPermit = matchesGrant(grants, grantScopes, subject, resource, lineage, environment);
+            if ((permit || grantPermit) && !deny) {
                 allowed.add(target.getResourceId());
             }
         }
@@ -118,12 +141,34 @@ public class DefaultAuthorizedResourceService implements AuthorizedResourceServi
 
     private boolean matchesCondition(String json, SubjectContext subject,
                                      ResourceDescriptor resource, EnvironmentContext environment) {
+        if (StringUtils.isBlank(json)) {
+            return true;
+        }
         try {
             return conditionEvaluator.matches(jsonCodec.read(json, PolicyConditionGroup.class),
                 subject, resource, environment);
         } catch (RuntimeException exception) {
             return false;
         }
+    }
+
+    private boolean matchesGrant(List<AuthzGrant> grants,
+                                 Map<Long, List<AuthzGrantScope>> grantScopes,
+                                 SubjectContext subject, ResourceDescriptor resource,
+                                 Set<Long> lineage, EnvironmentContext environment) {
+        for (AuthzGrant grant : grants) {
+            if (!matchesCondition(grant.getConditionJson(), subject, resource, environment)) {
+                continue;
+            }
+            for (AuthzGrantScope scope : safe(grantScopes.get(grant.getGrantId()))) {
+                if (lineage.contains(scope.getResourceId())
+                    && (Objects.equals(scope.getResourceId(), resource.getResourceId())
+                    || Boolean.TRUE.equals(scope.getIncludeChildren()))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private Map<Long, AuthzResource> loadResourceIndex(List<AuthzResource> targets) {

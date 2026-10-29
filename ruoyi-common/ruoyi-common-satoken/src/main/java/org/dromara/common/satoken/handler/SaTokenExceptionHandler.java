@@ -45,8 +45,12 @@ public class SaTokenExceptionHandler {
     @ExceptionHandler(NotLoginException.class)
     public R<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request) {
         String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',认证失败'{}',无法访问系统资源", requestURI, e.getMessage());
+        log.error("请求地址'{}',认证失败类型'{}',无法访问系统资源", requestURI, safeAuthenticationReason(e));
         return R.fail(HttpStatus.HTTP_UNAUTHORIZED, "认证失败，无法访问系统资源");
+    }
+
+    static String safeAuthenticationReason(NotLoginException exception) {
+        return exception.getType() == null ? "UNKNOWN" : exception.getType();
     }
 
 }

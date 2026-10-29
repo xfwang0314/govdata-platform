@@ -18,5 +18,6 @@
     <modules>
         <module>platform-auth</module>
         <module>platform-secret</module>
+        <module>platform-mcp</module>
     </modules>
 </project>

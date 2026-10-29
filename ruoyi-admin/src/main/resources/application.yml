@@ -51,6 +51,33 @@ user:
 spring:
   application:
     name: govdata-platform
+  quartz:
+    # 采集调度默认使用 Quartz；生产多实例可将 job-store-type 切换为 jdbc 并部署标准 Quartz 表
+    job-store-type: ${GOVDATA_QUARTZ_JOB_STORE_TYPE:memory}
+    scheduler-name: govdata-metadata-harvest
+    overwrite-existing-jobs: true
+    wait-for-jobs-to-complete-on-shutdown: true
+    properties:
+      org.quartz.scheduler.instanceId: AUTO
+      org.quartz.threadPool.threadCount: ${GOVDATA_QUARTZ_THREAD_COUNT:5}
+      org.quartz.jobStore.misfireThreshold: 60000
+  ai:
+    mcp:
+      server:
+        enabled: true
+        protocol: STREAMABLE
+        name: govdata-platform-mcp
+        version: 1.0.0
+        type: SYNC
+        instructions: 政务数据中台受控工具服务，所有调用均受租户、委托范围与 ABAC/Grant 授权约束。
+        capabilities:
+          resource: false
+          prompt: false
+          completion: false
+          tool: true
+        streamable-http:
+          mcp-endpoint: /platform/mcp
+          keep-alive-interval: 30s
   threads:
     # 开启虚拟线程 仅jdk21可用
     virtual:
@@ -116,6 +143,8 @@ security:
     - /*/api-docs
     - /*/api-docs/**
     - /warm-flow-ui/config
+    # MCP 协议端点使用独立 Agent Bearer 凭据认证，管理接口仍由 Sa-Token 保护。
+    - /platform/mcp
 
 # 多租户配置
 tenant:
@@ -209,6 +238,10 @@ springdoc:
       packages-to-scan: com.xfwang.govdata.datasource.interfaces
     - group: 7.平台凭据模块
       packages-to-scan: com.xfwang.platform.secret.interfaces
+    - group: 8.元数据目录模块
+      packages-to-scan: com.xfwang.govdata.metadata.interfaces
+    - group: 9.元数据采集模块
+      packages-to-scan: com.xfwang.govdata.metadata.harvest.interfaces
 
 platform:
   secret:
@@ -218,6 +251,26 @@ platform:
       # Base64 编码的 32 字节主密钥，生产环境通过 PLATFORM_SECRET_MASTER_KEY 环境变量注入，本地开发提供默认兜底 key
       master-key: ${PLATFORM_SECRET_MASTER_KEY}
       key-version: ${PLATFORM_SECRET_KEY_VERSION:v1}
+
+govdata:
+  metadata:
+    observation:
+      missing-guard:
+        enabled: ${GOVDATA_METADATA_MISSING_GUARD_ENABLED:true}
+        minimum-baseline-count: ${GOVDATA_METADATA_MISSING_MINIMUM_BASELINE_COUNT:20}
+        minimum-missing-count: ${GOVDATA_METADATA_MISSING_MINIMUM_COUNT:10}
+        maximum-missing-rate: ${GOVDATA_METADATA_MAXIMUM_MISSING_RATE:0.30}
+    harvest:
+      scheduler:
+        # 默认 Adapter；后续接入其他调度实现时只替换 HarvestScheduleRegistrar
+        provider: ${GOVDATA_METADATA_HARVEST_SCHEDULER_PROVIDER:quartz}
+      raw-archive:
+        # 开启后将规范化前的采集响应归档到当前默认对象存储，控制库只保存引用和哈希
+        enabled: ${GOVDATA_METADATA_HARVEST_RAW_ARCHIVE_ENABLED:false}
+        retention-days: ${GOVDATA_METADATA_HARVEST_RAW_ARCHIVE_RETENTION_DAYS:30}
+        max-bytes: ${GOVDATA_METADATA_HARVEST_RAW_ARCHIVE_MAX_BYTES:10485760}
+        cleanup-batch-size: ${GOVDATA_METADATA_HARVEST_RAW_ARCHIVE_CLEANUP_BATCH_SIZE:100}
+        cleanup-cron: ${GOVDATA_METADATA_HARVEST_RAW_ARCHIVE_CLEANUP_CRON:0 20 3 * * *}
 
 # 防止XSS攻击
 xss:

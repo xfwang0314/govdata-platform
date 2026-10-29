@@ -6,6 +6,7 @@ import com.xfwang.platform.api.auth.catalog.AuthorizationPurposeDefinition;
 import com.xfwang.platform.api.auth.catalog.ResourceTypeDefinition;
 import com.xfwang.platform.api.auth.catalog.ResourceSelectionMode;
 import com.xfwang.platform.api.auth.catalog.ResourceAuthorizationCapability;
+import com.xfwang.platform.api.auth.catalog.ResourceNavigationCategory;
 import org.dromara.system.api.permission.SystemAuthorizationResources;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,11 @@ public class SystemManagementAuthorizationCatalogContributor implements Authoriz
     @Override
     public String moduleLabel() {
         return "系统管理";
+    }
+
+    @Override
+    public ResourceNavigationCategory navigationCategory() {
+        return ResourceNavigationCategory.PLATFORM_MANAGEMENT;
     }
 
     @Override

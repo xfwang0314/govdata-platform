@@ -6,6 +6,7 @@ import com.xfwang.platform.api.auth.catalog.AuthorizationAttributeDefinition;
 import com.xfwang.platform.api.auth.catalog.AuthorizationCatalogContributor;
 import com.xfwang.platform.api.auth.catalog.AuthorizationPurposeDefinition;
 import com.xfwang.platform.api.auth.catalog.ResourceTypeDefinition;
+import com.xfwang.platform.api.auth.catalog.ResourceNavigationCategory;
 import com.xfwang.platform.api.auth.catalog.AttributeOperandRole;
 import com.xfwang.platform.api.auth.catalog.AttributeVisibility;
 import com.xfwang.platform.api.auth.catalog.AuthorizationValueOption;
@@ -35,12 +36,14 @@ public class AuthorizationCatalog {
 
     private final Map<String, ResourceTypeDefinition> resourceTypes;
     private final Map<String, String> moduleLabels;
+    private final Map<String, ResourceNavigationCategory> moduleCategories;
     private final Map<String, AuthorizationPurposeDefinition> purposes;
     private final List<AuthorizationAttributeDefinition> coreAttributes;
 
     public AuthorizationCatalog(List<AuthorizationCatalogContributor> contributors) {
         Map<String, ResourceTypeDefinition> typeSnapshot = new LinkedHashMap<>();
         Map<String, String> moduleLabelSnapshot = new LinkedHashMap<>();
+        Map<String, ResourceNavigationCategory> moduleCategorySnapshot = new LinkedHashMap<>();
         Map<String, AuthorizationPurposeDefinition> purposeSnapshot = new LinkedHashMap<>();
         Set<String> modules = new java.util.HashSet<>();
         for (AuthorizationCatalogContributor contributor : contributors) {
@@ -48,8 +51,10 @@ public class AuthorizationCatalog {
             String moduleLabel = contributor.moduleLabel();
             require(MODULE.matcher(nullSafe(moduleCode)).matches(), "授权目录模块编码无效");
             require(!nullSafe(moduleLabel).isBlank(), "授权目录模块名称无效: " + moduleCode);
+            require(contributor.navigationCategory() != null, "授权目录模块分类无效: " + moduleCode);
             require(modules.add(moduleCode), "授权目录模块编码重复: " + moduleCode);
             moduleLabelSnapshot.put(moduleCode, moduleLabel);
+            moduleCategorySnapshot.put(moduleCode, contributor.navigationCategory());
             for (ResourceTypeDefinition definition : safe(contributor.resourceTypes())) {
                 validateType(moduleCode, definition);
                 require(typeSnapshot.putIfAbsent(definition.typeCode(), definition) == null,
@@ -70,6 +75,7 @@ public class AuthorizationCatalog {
         });
         resourceTypes = Map.copyOf(typeSnapshot);
         moduleLabels = Map.copyOf(moduleLabelSnapshot);
+        moduleCategories = Map.copyOf(moduleCategorySnapshot);
         purposes = Map.copyOf(purposeSnapshot);
         coreAttributes = List.copyOf(coreAttributes());
     }
@@ -84,6 +90,18 @@ public class AuthorizationCatalog {
 
     public String moduleLabel(String moduleCode) {
         return moduleLabels.getOrDefault(moduleCode, moduleCode);
+    }
+
+    public ResourceNavigationCategory navigationCategory(String moduleCode) {
+        return Optional.ofNullable(moduleCategories.get(moduleCode))
+            .orElseThrow(() -> new ServiceException(GlobalErrorCode.VALIDATION_ERROR,
+                "授权目录模块分类不存在: " + moduleCode));
+    }
+
+    public List<ResourceNavigationCategory> navigationCategories() {
+        return moduleCategories.values().stream().distinct()
+            .sorted(java.util.Comparator.comparingInt(ResourceNavigationCategory::order))
+            .toList();
     }
 
     public List<AuthorizationPurposeDefinition> purposes() {

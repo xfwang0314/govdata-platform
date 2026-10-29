@@ -38,6 +38,7 @@ public class ResourceQueryService {
         ResourceQuery filter = query == null ? new ResourceQuery() : query;
         boolean hasKeyword = StringUtils.isNotBlank(filter.getKeyword());
         LambdaQueryWrapper<AuthzResource> wrapper = new LambdaQueryWrapper<AuthzResource>()
+            .eq(filter.getResourceId() != null, AuthzResource::getResourceId, filter.getResourceId())
             .and(hasKeyword, value -> value
                 .like(AuthzResource::getResourceName, filter.getKeyword())
                 .or().like(AuthzResource::getResourceCode, filter.getKeyword())
@@ -51,7 +52,7 @@ public class ResourceQueryService {
             .eq(StringUtils.isNotBlank(filter.getStatus()), AuthzResource::getStatus, filter.getStatus());
 
         // 非关键字搜索时默认按根节点分页
-        if (!hasKeyword) {
+        if (!hasKeyword && filter.getResourceId() == null) {
             wrapper.isNull(AuthzResource::getParentId);
         }
 

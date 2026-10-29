@@ -43,6 +43,30 @@ class ResourceQueryServiceTest {
             .isEqualTo("省人口库 / public");
     }
 
+    @Test
+    void selectingResourceReturnsThatResourceAndItsCrossModuleDescendants() {
+        AuthzResourceMapper mapper = mock(AuthzResourceMapper.class);
+        AuthzResource datasource = resource(10L, null, "省人口库", "govdata-datasource");
+        AuthzResource catalog = resource(20L, 10L, "population", "govdata-metadata");
+        when(mapper.selectPage(any(), any())).thenAnswer(invocation -> {
+            IPage<AuthzResource> page = invocation.getArgument(0);
+            page.setRecords(List.of(datasource));
+            page.setTotal(1);
+            return page;
+        });
+        when(mapper.selectList(any())).thenReturn(List.of(catalog), List.of());
+
+        ResourceQuery query = new ResourceQuery();
+        query.setResourceId(10L);
+        ResourceQueryService service = new ResourceQueryService(
+            mapper, new AuthorizationJsonCodec(new ObjectMapper()));
+
+        PageResult<ResourceDescriptor> result = service.page(query, new PageQuery(20, 1));
+
+        assertThat(result.getRows()).extracting(ResourceDescriptor::getResourceName)
+            .containsExactly("省人口库", "population");
+    }
+
     private AuthzResource resource(Long id, Long parentId, String name, String module) {
         AuthzResource resource = new AuthzResource();
         resource.setResourceId(id);

@@ -14,6 +14,10 @@ Command、表单和外部调用方不得传入或修改该编码；删除后不�
 | `grt_` | platform-auth | 运行时 Grant | `grant_code` |
 | `sec_` | platform-secret | 凭据 | `secret_code` |
 | `ds_` | govdata-datasource | 数据源 | `datasource_code` |
+| `mas_` | govdata-metadata | 元数据资产 | `asset_code` |
+| `mds_` | govdata-metadata | 已发布元数据快照 | `snapshot_code` |
+| `mhp_` | govdata-metadata-harvest | 元数据采集计划 | `harvest_plan_code` |
+| `mhr_` | govdata-metadata-harvest | 元数据采集运行 | `harvest_run_no` |
 | `ont_` | govdata-ontology（预留） | 本体 | `ontology_code` |
 | `onc_` | govdata-ontology（预留） | 本体概念/类 | `concept_code` 或迁移前预留字段 |
 

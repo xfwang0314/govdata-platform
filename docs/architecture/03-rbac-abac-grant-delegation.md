@@ -1,9 +1,9 @@
 # RBAC、ABAC、Grant 与 Delegation
 
-- 状态：架构基线 v1（已确认）
+- 状态：架构基线 v1；`platform-auth` P0 已实现，部分后续能力未实现
 - 适用范围：所有功能和数据授权
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-02
+- 最后更新：2026-08-21
 
 ## 职责
 
@@ -55,14 +55,15 @@ Agent 基础能力、本次委托范围和 ABAC 条件的交集。
 旧 `data_scope` 已移除。需要平台控制库行级过滤的模块统一使用 `@AbacDataScope`；
 外部数据查询通过 `platform-auth` 和 `govdata-query` 执行资源授权与义务。
 
-当前实现细节和未完成项见 [platform-auth.md](platform-auth.md)。
+当前可运行能力与未完成项以 [当前实施状态](../implementation-status.md) 为准；
+领域术语、运行时不变量与接口约束见 [平台授权上下文](../domain/platform-auth/CONTEXT.md)。
 
 ## 第一版范围
 
-第一版只交付 Human 主体的 `Resource + ABAC + AuthorizationGrant`，但必须同时交付 Policy/Grant
-管理服务与页面，以及执行查询类 Obligation 的 `govdata-query`。SERVICE、AGENT Delegation、
-BreakGlass 和属性 Schema 注册按后续阶段启用，不得因此削弱第一版的版本化策略、授权来源追踪、
-默认拒绝和完整审计。
+已交付 `Resource + ABAC + AuthorizationGrant`、Policy/Grant 管理和授权审计。`govdata-query`
+已具备授权约束编译骨架，但尚未接入元数据映射和真实执行 Adapter，不能视为查询类 Obligation 的生产闭环。
+SERVICE、显式 AGENT Delegation、BreakGlass 和属性 Schema 注册按后续阶段启用；当前 MCP 的
+`OWNER_INHERIT` 仅继承实时用户主体并叠加凭据模块上限，不等同于正式 Delegation。
 
 在 SERVICE、AGENT 的可信认证和 Delegation 决策链启用前，Policy/Grant 管理接口必须拒绝创建
 这两类主体的可执行授权，不能仅因表结构已经预留主体类型就提前放行。

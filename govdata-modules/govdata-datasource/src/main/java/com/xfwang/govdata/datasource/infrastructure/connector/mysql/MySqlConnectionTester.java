@@ -70,7 +70,7 @@ public class MySqlConnectionTester extends AbstractJdbcConnectionTester implemen
             .connectorName("MySQL")
             .connectorVersion(version())
             .category("JDBC")
-            .capabilities(Set.of("CONNECTION_TEST", "METADATA_INSPECT"))
+            .capabilities(Set.of("CONNECTION_TEST", "METADATA_INSPECT", "QUERY"))
             .customPropertiesSupported(true)
             .connectionPreview(ConnectorPreviewDescriptor.builder()
                 .label("JDBC URL")

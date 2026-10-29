@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DefaultAuthorizedQueryGateway implements AuthorizedQueryGateway {
 
-    private static final int PLATFORM_MAX_FIELDS = 200;
+    private static final int PLATFORM_MAX_FIELDS = 100;
     private static final int PLATFORM_MAX_FILTERS = 50;
     private static final int PLATFORM_MAX_SORTS = 5;
     private static final int PLATFORM_MAX_ROWS = 1_000;
@@ -94,9 +94,12 @@ public class DefaultAuthorizedQueryGateway implements AuthorizedQueryGateway {
         enforceColumnScope(selectedFields, obligation.getAllowedColumns());
 
         List<QueryFilter> filters = new ArrayList<>();
-        filters.addAll(validateUserFilters(query.getFilters(), fieldsById));
+        List<QueryFilter> userFilters = validateUserFilters(query.getFilters(), fieldsById);
+        enforcePredicateScope(userFilters.stream().map(filter -> fieldsById.get(filter.getFieldId())).toList(), obligation);
+        filters.addAll(userFilters);
         filters.addAll(compileObligationFilters(obligation.getRowFilters(), schema, accessRequest));
         List<QuerySort> sorts = validateSorts(query.getSorts(), fieldsById);
+        enforcePredicateScope(sorts.stream().map(sort -> fieldsById.get(sort.getFieldId())).toList(), obligation);
         int limit = effectiveLimit(query.getLimit(), obligation.getMaxRows());
         int timeoutMs = Math.min(query.getTimeoutMs(), PLATFORM_MAX_TIMEOUT_MS);
 
@@ -123,9 +126,9 @@ public class DefaultAuthorizedQueryGateway implements AuthorizedQueryGateway {
         if (query == null || query.getDatasourceId() == null || query.getResourceId() == null
             || query.getFieldIds() == null || query.getFieldIds().isEmpty()
             || query.getFieldIds().size() > PLATFORM_MAX_FIELDS) {
-            throw error(QueryErrorCode.INVALID_REQUEST, "数据源、资源和1至200个字段不能为空");
+            throw error(QueryErrorCode.INVALID_REQUEST, "数据源、资源和1至100个字段不能为空");
         }
-        if (query.getOffset() == null || query.getOffset() < 0 || query.getLimit() == null || query.getLimit() <= 0
+        if (query.getOffset() == null || query.getOffset() < 0 || query.getOffset() > 10000 || query.getLimit() == null || query.getLimit() <= 0
             || query.getTimeoutMs() == null || query.getTimeoutMs() <= 0) {
             throw error(QueryErrorCode.INVALID_REQUEST, "offset、limit或timeoutMs无效");
         }
@@ -170,6 +173,16 @@ public class DefaultAuthorizedQueryGateway implements AuthorizedQueryGateway {
             validateFilterValues(filter.getOperator(), filter.getValues());
             return filter;
         }).toList();
+    }
+
+    private void enforcePredicateScope(List<QueryFieldSchema> fields, AuthorizationObligation obligation) {
+        enforceColumnScope(fields, obligation.getAllowedColumns());
+        if (fields.stream().anyMatch(field -> {
+            String rule = maskingRule(field, obligation.getMaskingRules());
+            return StringUtils.isNotBlank(rule) && !"NONE".equalsIgnoreCase(rule.trim());
+        })) {
+            throw error(QueryErrorCode.FIELD_FORBIDDEN, "不能通过过滤或排序探测已脱敏字段");
+        }
     }
 
     private List<QuerySort> validateSorts(List<QuerySort> values, Map<Long, QueryFieldSchema> fieldsById) {
@@ -219,10 +232,9 @@ public class DefaultAuthorizedQueryGateway implements AuthorizedQueryGateway {
             case LTE -> QueryOperator.LTE;
             case IN -> QueryOperator.IN;
             case NOT_IN -> QueryOperator.NOT_IN;
-            case CONTAINS -> QueryOperator.LIKE;
             case EXISTS -> QueryOperator.IS_NOT_NULL;
             case NOT_EXISTS -> QueryOperator.IS_NULL;
-            case BETWEEN, INTERSECTS, STARTS_WITH -> throw error(
+            case CONTAINS, BETWEEN, INTERSECTS, STARTS_WITH -> throw error(
                 QueryErrorCode.AUTHORIZATION_REQUIRED,
                 "查询网关暂不支持授权行条件操作符: " + operator.code());
         };

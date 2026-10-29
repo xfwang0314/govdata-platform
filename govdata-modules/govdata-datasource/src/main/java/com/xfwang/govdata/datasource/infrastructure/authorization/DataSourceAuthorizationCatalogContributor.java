@@ -11,6 +11,7 @@ import com.xfwang.platform.api.auth.catalog.AuthorizationPurposeDefinition;
 import com.xfwang.platform.api.auth.catalog.ResourceTypeDefinition;
 import com.xfwang.platform.api.auth.catalog.ResourceSelectionMode;
 import com.xfwang.platform.api.auth.catalog.ResourceAuthorizationCapability;
+import com.xfwang.platform.api.auth.catalog.ResourceNavigationCategory;
 import com.xfwang.platform.api.auth.catalog.AttributeOperandRole;
 import com.xfwang.platform.api.auth.catalog.AttributeVisibility;
 import com.xfwang.platform.api.auth.catalog.AuthorizationValueOption;
@@ -34,6 +35,11 @@ public class DataSourceAuthorizationCatalogContributor implements AuthorizationC
     @Override
     public String moduleLabel() {
         return "数据源管理";
+    }
+
+    @Override
+    public ResourceNavigationCategory navigationCategory() {
+        return ResourceNavigationCategory.TECHNICAL_DATA_ASSET;
     }
 
     @Override

@@ -134,11 +134,10 @@ public class AbacDataAuthorizationScopeProvider implements DataAuthorizationScop
     }
 
     private boolean supported(DataAuthorizationScopeRequest request) {
-        return request != null && request.action() != null && request.purpose() != null
-            && (SystemAuthorizationResources.USER.equals(request.resourceType())
-            || SystemAuthorizationResources.DEPARTMENT.equals(request.resourceType())
-            || SystemAuthorizationResources.POST.equals(request.resourceType())
-            || SystemAuthorizationResources.ROLE.equals(request.resourceType()));
+        return request != null
+            && request.resourceType() != null && !request.resourceType().isBlank()
+            && request.action() != null && !request.action().isBlank()
+            && request.purpose() != null && !request.purpose().isBlank();
     }
 
 }

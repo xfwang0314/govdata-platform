@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.xfwang.govdata.query.infrastructure.persistence.mapper.QueryAccessLogMapper">
+    <insert id="insert">
+        INSERT INTO gd_query_access_log
+            (access_log_id, tenant_id, query_id, datasource_id, resource_id, action_code, purpose,
+             actor_type, actor_id, trace_id, result, error_code, field_count, filter_count,
+             returned_row_count, duration_ms, occurred_time)
+        VALUES
+            (#{record.accessLogId}, #{record.tenantId}, #{record.queryId}, #{record.datasourceId},
+             #{record.resourceId}, #{record.actionCode}, #{record.purpose}, #{record.actorType},
+             #{record.actorId}, #{record.traceId}, #{record.result}, #{record.errorCode},
+             #{record.fieldCount}, #{record.filterCount}, #{record.returnedRowCount},
+             #{record.durationMs}, #{record.occurredTime})
+    </insert>
+</mapper>

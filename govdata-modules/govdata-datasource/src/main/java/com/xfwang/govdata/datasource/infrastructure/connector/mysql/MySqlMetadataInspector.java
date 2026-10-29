@@ -35,7 +35,7 @@ import java.util.Set;
 @Component
 public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
 
-    private static final Set<String> SYSTEM_DATABASES = Set.of(
+    private static final List<String> SYSTEM_DATABASES = List.of(
             "information_schema", "performance_schema", "mysql", "sys"
     );
 
@@ -141,14 +141,26 @@ public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
             configure(props, request);
 
             try (Connection connection = DriverManager.getConnection(jdbcUrl, props)) {
+                String databaseName = requestedDatabase(request);
+                String scopePredicate = databaseName == null
+                    ? "TABLE_SCHEMA NOT IN (" + String.join(",",
+                        Collections.nCopies(SYSTEM_DATABASES.size(), "?")) + ")"
+                    : "TABLE_SCHEMA = ?";
                 StringBuilder sqlCount = new StringBuilder(
-                        "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
+                        "SELECT COUNT(*) FROM information_schema.TABLES WHERE " + scopePredicate);
                 StringBuilder sqlPage = new StringBuilder(
                         "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE, TABLE_COMMENT " +
-                        "FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
+                        "FROM information_schema.TABLES WHERE " + scopePredicate);
 
                 List<Object> countParams = new ArrayList<>();
                 List<Object> pageParams = new ArrayList<>();
+                if (databaseName != null) {
+                    countParams.add(databaseName);
+                    pageParams.add(databaseName);
+                } else {
+                    countParams.addAll(SYSTEM_DATABASES);
+                    pageParams.addAll(SYSTEM_DATABASES);
+                }
 
                 if (request.getTableNamePattern() != null && !request.getTableNamePattern().isBlank()) {
                     sqlCount.append(" AND TABLE_NAME LIKE ?");
@@ -193,7 +205,6 @@ public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
                         while (rs.next()) {
                             tables.add(TableMeta.builder()
                                     .catalog(rs.getString("TABLE_SCHEMA"))
-                                    .schema(rs.getString("TABLE_SCHEMA"))
                                     .tableName(rs.getString("TABLE_NAME"))
                                     .tableType(rs.getString("TABLE_TYPE"))
                                     .remarks(rs.getString("TABLE_COMMENT"))
@@ -257,11 +268,12 @@ public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
             configure(props, request);
 
             try (Connection connection = DriverManager.getConnection(jdbcUrl, props)) {
+                String databaseName = targetDatabase(request, connection);
                 // 动态构建 IN (?, ?, ...)
                 String placeholders = String.join(",", Collections.nCopies(tableNames.size(), "?"));
                 String sql = "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_COMMENT, ORDINAL_POSITION, COLUMN_KEY " +
                              "FROM information_schema.COLUMNS " +
-                             "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (" + placeholders + ") " +
+                             "WHERE TABLE_SCHEMA = ? AND TABLE_NAME IN (" + placeholders + ") " +
                              "ORDER BY TABLE_NAME, ORDINAL_POSITION";
 
                 Map<String, List<ColumnMeta>> columnMap = new LinkedHashMap<>();
@@ -270,8 +282,9 @@ public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
                 }
 
                 try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                    ps.setString(1, databaseName);
                     for (int i = 0; i < tableNames.size(); i++) {
-                        ps.setString(i + 1, tableNames.get(i));
+                        ps.setString(i + 2, tableNames.get(i));
                     }
                     try (ResultSet rs = ps.executeQuery()) {
                         while (rs.next()) {
@@ -302,7 +315,7 @@ public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
                 List<TableSchema> schemas = new ArrayList<>();
                 for (Map.Entry<String, List<ColumnMeta>> entry : columnMap.entrySet()) {
                     schemas.add(TableSchema.builder()
-                            .table(TableMeta.builder().tableName(entry.getKey()).build())
+                            .table(TableMeta.builder().catalog(databaseName).tableName(entry.getKey()).build())
                             .columns(entry.getValue())
                             .build());
                 }
@@ -340,5 +353,21 @@ public class MySqlMetadataInspector extends AbstractJdbcMetadataInspector {
         Object value = endpointConfig.get("properties");
         return value instanceof Map<?, ?> map ? (Map<String, String>) map : Map.of();
     }
-}
 
+    /** MySQL 将 database 映射为 Catalog，不重复生成同名 Schema。 */
+    private String targetDatabase(MetadataInspectRequest request, Connection connection) throws java.sql.SQLException {
+        String requested = requestedDatabase(request);
+        if (requested != null) return requested;
+        String databaseName = connection.getCatalog();
+        if (databaseName == null || databaseName.isBlank()) {
+            throw new java.sql.SQLException("MySQL连接未指定可探测的数据库");
+        }
+        return databaseName;
+    }
+
+    private String requestedDatabase(MetadataInspectRequest request) {
+        if (request.getCatalog() != null && !request.getCatalog().isBlank()) return request.getCatalog();
+        if (request.getSchema() != null && !request.getSchema().isBlank()) return request.getSchema();
+        return null;
+    }
+}

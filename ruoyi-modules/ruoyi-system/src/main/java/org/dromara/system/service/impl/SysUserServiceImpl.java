@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.constant.CacheNames;
 import org.dromara.common.core.constant.SystemConstants;
 import org.dromara.system.api.domain.UserDTO;
+import org.dromara.system.api.domain.UserAuthorizationProfileDTO;
 import org.dromara.common.core.exception.ServiceException;
 import org.dromara.system.api.UserService;
 import org.dromara.system.api.permission.DataAuthorizationScopeRequest;
@@ -28,6 +29,7 @@ import org.dromara.system.domain.SysUser;
 import org.dromara.system.domain.SysUserPost;
 import org.dromara.system.domain.SysUserRole;
 import org.dromara.system.domain.bo.SysUserBo;
+import org.dromara.system.domain.vo.SysDeptVo;
 import org.dromara.system.domain.vo.SysPostVo;
 import org.dromara.system.domain.vo.SysRoleVo;
 import org.dromara.system.domain.vo.SysUserExportVo;
@@ -59,6 +61,43 @@ public class SysUserServiceImpl implements ISysUserService, UserService {
     private final SysUserRoleMapper userRoleMapper;
     private final SysUserPostMapper userPostMapper;
     private final SystemDataAuthorizationGuard authorizationGuard;
+
+    @Override
+    public UserAuthorizationProfileDTO selectAuthorizationProfileById(Long userId) {
+        SysUserVo user = selectUserById(userId);
+        if (user == null) {
+            return null;
+        }
+        UserAuthorizationProfileDTO profile = new UserAuthorizationProfileDTO();
+        profile.setTenantId(user.getTenantId());
+        profile.setUserId(user.getUserId());
+        profile.setDeptId(user.getDeptId());
+        profile.setUserType(user.getUserType());
+        profile.setStatus(user.getStatus());
+
+        LinkedHashSet<Long> deptPathIds = new LinkedHashSet<>();
+        if (user.getDeptId() != null) {
+            SysDeptVo dept = deptMapper.selectVoById(user.getDeptId());
+            if (dept != null) {
+                profile.setDeptCategory(dept.getDeptCategory());
+                if (StringUtils.isNotBlank(dept.getAncestors())) {
+                    StringUtils.splitTo(dept.getAncestors(), Convert::toLong).stream()
+                        .filter(id -> id != null && id > 0)
+                        .forEach(deptPathIds::add);
+                }
+            }
+            deptPathIds.add(user.getDeptId());
+        }
+        profile.setDeptPathIds(Set.copyOf(deptPathIds));
+        List<SysRoleVo> roles = user.getRoles() == null ? List.of() : user.getRoles().stream()
+            .filter(role -> SystemConstants.NORMAL.equals(role.getStatus()))
+            .toList();
+        profile.setRoleIds(roles.stream().map(SysRoleVo::getRoleId)
+            .filter(Objects::nonNull).collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        profile.setRoleKeys(roles.stream().map(SysRoleVo::getRoleKey)
+            .filter(StringUtils::isNotBlank).collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        return profile;
+    }
 
     @Override
     public PageResult<SysUserVo> selectPageUserList(SysUserBo user, PageQuery pageQuery) {

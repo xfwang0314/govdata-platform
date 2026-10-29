@@ -1,10 +1,10 @@
 # 全模块数据库设计总览
 
-- 状态：逻辑/物理设计基线 v1（待评审）
+- 状态：逻辑/物理设计基线 v2
 - 数据库：MySQL 8.0
 - 字符集：`utf8mb4`
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-02
+- 最后更新：2026-09-07
 
 ## 设计范围
 
@@ -16,18 +16,24 @@ RuoYi-Vue-Plus，不建设第二套模型：
 - `sys_role.owner_dept_id` 是部门自治角色的当前业务权属；`create_dept` 仅作为创建审计快照，不参与授权。
 - 登录客户端：`sys_client`。
 - 人工审批：WarmFlow 表。
-- 后台调度：Quartz JDBC JobStore 基础设施表；领域计划和运行记录仍由所属领域保存。
+- 后台调度：默认使用 Quartz；开发环境可使用内存 JobStore，生产切换 JDBC JobStore。领域计划和运行记录仍由所属领域保存。
 - 操作日志和登录日志：现有 `sys_oper_log`、`sys_logininfor`。
 
 模块表设计分为：
 
 - [平台通用能力](01-platform-tables.md)：授权、Secret、事件、Agent 与 MCP。
-- [数据接入与目录](02-datasource-query-metadata-tables.md)：数据源、查询网关、元数据。
+- [数据接入与目录](02-datasource-query-metadata-tables.md)：数据源、查询网关、版本化元数据目录与元数据采集。
 - [数据流通](03-exchange-sharing-serving-tables.md)：交换、共享、数据服务。
 - [数据治理与语义](04-standard-quality-ontology-tables.md)：标准、质量、本体。
 
-本版共设计 118 张新增表，其中 P0 82 张、P1 23 张、P2 13 张。这里的 P0 表示“对应模块
-首次可用时必须建设”，不表示 111 张表需要在同一个迭代同时开发。
+本版目标共设计 123 张新增表，其中 P0 87 张、P1 23 张、P2 13 张。这里的 P0 表示“对应模块
+首次可用时必须建设”，不表示这些表已经全部落库，也不表示需要在同一个迭代同时开发。
+
+截至 2026-09-07，Baseline 中实际定义的自研表为：`platform-auth` 12 张、`platform-secret` 3 张、
+`govdata-datasource` 2 张、`govdata-metadata` 9 张、`govdata-metadata-harvest` 6 张、
+`govdata-query` 1 张，共 33 张。查询新增 `gd_query_access_log`，已有环境须手工升级。实际清单以
+[`script/sql/baseline/manifest.md`](../../script/sql/baseline/manifest.md) 和
+[当前实施状态](../implementation-status.md) 为准。
 
 | 模块 | 表数量 |
 |---|---:|
@@ -37,7 +43,8 @@ RuoYi-Vue-Plus，不建设第二套模型：
 | platform-mcp / Agent | 9 |
 | govdata-datasource | 4 |
 | govdata-query | 3 |
-| govdata-metadata | 16 |
+| govdata-metadata | 11 |
+| govdata-metadata-harvest | 6 |
 | govdata-exchange | 8 |
 | govdata-sharing | 9 |
 | govdata-serving | 9 |
@@ -45,7 +52,7 @@ RuoYi-Vue-Plus，不建设第二套模型：
 | govdata-quality | 13 |
 | govdata-ontology | 14 |
 
-`platform-auth` 的 17 张表是完整目标设计；已确认的第一版只执行其中 11 张 Human 主体核心表。
+`platform-auth` 的 17 张表是完整目标设计；当前 Baseline 已执行其中 12 张核心表（含 Agent 凭据）。
 其余 6 张在 SERVICE、属性注册、Agent Delegation 或 BreakGlass 对应能力开发时再进入升级 SQL。
 第一版同时必须建设 `govdata-query`，否则授权产生的行列、脱敏和限量 Obligation 没有统一执行点。
 

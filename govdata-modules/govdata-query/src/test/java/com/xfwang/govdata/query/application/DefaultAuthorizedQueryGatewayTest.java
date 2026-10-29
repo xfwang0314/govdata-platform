@@ -36,6 +36,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DefaultAuthorizedQueryGatewayTest {
 
     @Test
+    void refusesPredicatesOnColumnsOutsideTheAuthorizationWhitelist() {
+        var context = new TestAuthorizationContext(AccessRequest.builder().resourceId(101L).build(),
+            AccessDecision.builder().decision(DecisionType.PERMIT)
+                .obligation(AuthorizationObligation.builder().allowedColumns(Set.of("name")).build()).build());
+        var adapter = new QueryExecutionAdapter() {
+            public boolean supports(String connectorCode) { return true; }
+            public RawQueryResult execute(AuthorizedExecutionPlan plan) { return RawQueryResult.builder().build(); }
+        };
+        var gateway = new DefaultAuthorizedQueryGateway(context, List.of(provider(schema())), List.of(adapter));
+        assertThatThrownBy(() -> gateway.execute(AuthorizedQuery.builder().datasourceId(201L).resourceId(101L)
+            .fieldIds(List.of(11L)).filters(List.of(com.xfwang.govdata.api.query.QueryFilter.builder().fieldId(12L)
+                .operator(com.xfwang.govdata.api.query.QueryOperator.EQ).values(List.of("13812345678")).build())).build()))
+            .hasFieldOrPropertyWithValue("errorCode", "GOV-QUERY-0403-01");
+    }
+
+    @Test
     void enforcesAuthorizationFiltersLimitsAndMaskingBeforeReturningRows() {
         AuthorizationObligation obligation = AuthorizationObligation.builder()
             .allowedColumns(Set.of("name", "phone"))

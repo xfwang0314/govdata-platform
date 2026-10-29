@@ -2,7 +2,6 @@ package org.dromara.common.web.interceptor;
 
 import cn.hutool.core.io.IoUtil;
 import cn.hutool.core.map.MapUtil;
-import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +19,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -55,8 +55,7 @@ public class PlusWebInvokeTimeInterceptor implements HandlerInterceptor {
         } else {
             Map<String, String[]> parameterMap = request.getParameterMap();
             if (MapUtil.isNotEmpty(parameterMap)) {
-                Map<String, String[]> map = new LinkedHashMap<>(parameterMap);
-                MapUtil.removeAny(map, SystemConstants.EXCLUDE_PROPERTIES);
+                Map<String, String[]> map = sanitizeParameters(parameterMap);
                 String parameters = JsonUtils.toJsonString(map);
                 log.info("[PLUS]开始请求 => URL[{}],参数类型[param],参数:[{}]", url, parameters);
             } else {
@@ -80,7 +79,7 @@ public class PlusWebInvokeTimeInterceptor implements HandlerInterceptor {
             // 收集要删除的字段名（避免 ConcurrentModification）
             Set<String> fieldsToRemove = new HashSet<>();
             objectNode.fieldNames().forEachRemaining(fieldName -> {
-                if (ArrayUtil.contains(excludeProperties, fieldName)) {
+                if (isSensitiveProperty(fieldName, excludeProperties)) {
                     fieldsToRemove.add(fieldName);
                 }
             });
@@ -93,6 +92,21 @@ public class PlusWebInvokeTimeInterceptor implements HandlerInterceptor {
                 removeSensitiveFields(child, excludeProperties);
             }
         }
+    }
+
+    static Map<String, String[]> sanitizeParameters(Map<String, String[]> parameters) {
+        Map<String, String[]> sanitized = new LinkedHashMap<>();
+        parameters.forEach((key, value) -> {
+            if (!isSensitiveProperty(key, SystemConstants.EXCLUDE_PROPERTIES)) sanitized.put(key, value);
+        });
+        return sanitized;
+    }
+
+    private static boolean isSensitiveProperty(String fieldName, String[] excludeProperties) {
+        if (fieldName == null) return false;
+        if (Arrays.stream(excludeProperties).anyMatch(value -> value.equalsIgnoreCase(fieldName))) return true;
+        return Set.of("authorization", "token", "accessToken", "refreshToken", "clientSecret")
+            .stream().anyMatch(value -> value.equalsIgnoreCase(fieldName));
     }
 
     @Override

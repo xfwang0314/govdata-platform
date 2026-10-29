@@ -108,6 +108,19 @@ class AuthorizationOptionsQueryServiceTest {
         assertThat(options.getGrantPurposes()).isEmpty();
     }
 
+    @Test
+    void shouldExposeBackendOwnedNavigationCategories() {
+        AuthorizationOptionsQueryService service = new AuthorizationOptionsQueryService(
+            new AuthorizationCatalog(List.of(new SystemManagementAuthorizationCatalogContributor())));
+
+        AuthzOptionsView options = service.options();
+
+        assertThat(options.getResourceCategories()).extracting("label", "code", "order")
+            .containsExactly(tuple("平台管理资源", "PLATFORM_MANAGEMENT", 40));
+        assertThat(options.getResourceTypes())
+            .allSatisfy(type -> assertThat(type.getCategoryCode()).isEqualTo("PLATFORM_MANAGEMENT"));
+    }
+
     private static org.assertj.core.groups.Tuple tuple(Object... values) {
         return org.assertj.core.groups.Tuple.tuple(values);
     }

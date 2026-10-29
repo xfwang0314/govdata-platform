@@ -23,6 +23,8 @@ public class AuthorizedQuery implements Serializable {
     private String requestId;
     private Long datasourceId;
     private Long resourceId;
+    /** 调用方最近验证过的表修订号，仅用于变化检测，不固定历史结构。 */
+    private Integer validatedRevisionNo;
     @Builder.Default
     private List<Long> fieldIds = new ArrayList<>();
     @Builder.Default
@@ -34,6 +36,6 @@ public class AuthorizedQuery implements Serializable {
     @Builder.Default
     private Integer limit = 100;
     @Builder.Default
-    private Integer timeoutMs = 30_000;
+    private Integer timeoutMs = 10_000;
     private String purpose;
 }

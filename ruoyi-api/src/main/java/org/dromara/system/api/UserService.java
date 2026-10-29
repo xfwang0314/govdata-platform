@@ -1,6 +1,7 @@
 package org.dromara.system.api;
 
 import org.dromara.system.api.domain.UserDTO;
+import org.dromara.system.api.domain.UserAuthorizationProfileDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,11 @@ import java.util.Map;
  * @author Lion Li
  */
 public interface UserService {
+
+    /**
+     * 查询用户当前授权属性快照，不包含登录凭据和菜单权限。
+     */
+    UserAuthorizationProfileDTO selectAuthorizationProfileById(Long userId);
 
     /**
      * 通过用户ID查询用户账户

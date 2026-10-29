@@ -10,6 +10,9 @@ public interface AuthorizationCatalogContributor {
     /** 面向管理端展示的稳定模块名称。 */
     String moduleLabel();
 
+    /** 模块资源在管理端授权目录中的虚拟分类，不参与真实 Resource 层级。 */
+    ResourceNavigationCategory navigationCategory();
+
     List<ResourceTypeDefinition> resourceTypes();
 
     default List<AuthorizationPurposeDefinition> purposes() {

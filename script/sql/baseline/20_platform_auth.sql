@@ -290,10 +290,10 @@ CREATE TABLE authz_grant
 CREATE TABLE authz_grant_scope
 (
     scope_id          bigint       NOT NULL COMMENT 'Grant范围主键，雪花ID',
-    tenant_id         varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
+    tenant_id         varchar(20)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
     grant_id          bigint       NOT NULL COMMENT 'AuthorizationGrant主键',
     resource_id       bigint       NOT NULL COMMENT '资源主键',
-    action_code       varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定授权动作编码',
+    action_code       varchar(64)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定授权动作编码',
     include_children  tinyint(1)   NOT NULL DEFAULT 0 COMMENT '是否包含后代资源',
     obligation_json   json         DEFAULT NULL COMMENT '结构化行列、脱敏、限量和导出约束',
     create_by         bigint       DEFAULT NULL COMMENT '创建人ID',
@@ -309,25 +309,25 @@ CREATE TABLE authz_grant_scope
 CREATE TABLE authz_decision_log
 (
     decision_id             bigint        NOT NULL COMMENT '授权决策日志主键，雪花ID',
-    tenant_id               varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '审计归属租户，通常为资源租户',
-    subject_tenant_id       varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体租户编号',
-    subject_type            varchar(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体类型：HUMAN/SERVICE/AGENT',
-    subject_id              varchar(100) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体稳定ID',
+    tenant_id               varchar(20)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '审计归属租户，通常为资源租户',
+    subject_tenant_id       varchar(20)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体租户编号',
+    subject_type            varchar(32)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体类型：HUMAN/SERVICE/AGENT',
+    subject_id              varchar(100)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '主体稳定ID',
     subject_snapshot_json   json          NOT NULL COMMENT '最小主体属性快照',
-    resource_tenant_id      varchar(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源租户编号',
+    resource_tenant_id      varchar(20)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源租户编号',
     resource_id             bigint        DEFAULT NULL COMMENT '资源主键',
-    resource_type_snapshot  varchar(120) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源类型快照',
-    resource_code_snapshot  varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源编码快照',
-    action_code             varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '授权动作编码',
-    decision                varchar(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '决策：PERMIT/DENY',
-    reason_code             varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定决策原因编码',
+    resource_type_snapshot  varchar(120)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源类型快照',
+    resource_code_snapshot  varchar(64)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '资源编码快照',
+    action_code             varchar(64)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '授权动作编码',
+    decision                varchar(16)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '决策：PERMIT/DENY',
+    reason_code             varchar(64)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '稳定决策原因编码',
     policy_version_ids_json json          DEFAULT NULL COMMENT '命中策略版本ID集合',
     grant_ids_json          json          DEFAULT NULL COMMENT '命中Grant ID集合',
     delegation_id           bigint        DEFAULT NULL COMMENT '命中委托主键',
     break_glass_access_id   bigint        DEFAULT NULL COMMENT '命中应急访问主键',
     obligation_summary_json json          DEFAULT NULL COMMENT '生效Obligation摘要',
     purpose                 varchar(500)  DEFAULT NULL COMMENT '访问用途',
-    trace_id                varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '链路追踪ID',
+    trace_id                varchar(64)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '链路追踪ID',
     duration_ms             bigint        NOT NULL COMMENT '决策耗时毫秒',
     occurred_time           datetime(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '决策发生时间',
     PRIMARY KEY (decision_id),
@@ -343,7 +343,41 @@ CREATE TABLE authz_decision_log
     CONSTRAINT ck_authz_decision_duration CHECK (duration_ms >= 0)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '授权决策追加审计日志';
 
--- 验证：第一版空库执行后预期返回11
+CREATE TABLE authz_agent_token
+(
+    token_id            bigint        NOT NULL COMMENT '凭证雪花ID主键',
+    tenant_id           varchar(20)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '地区租户编号',
+    agent_name          varchar(64)   NOT NULL COMMENT 'Agent名称',
+    agent_code          varchar(64)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'Agent稳定业务编码',
+    token_hash          varchar(128)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'Token哈希摘要(SHA-256防明文泄露)',
+    token_prefix        varchar(32)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'Token安全前缀(脱敏展示)',
+    user_id             bigint        NOT NULL COMMENT '归属用户ID',
+    dept_id             bigint        NOT NULL COMMENT '归属部门ID快照',
+    allowed_categories  varchar(255)  CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'DATASOURCE' COMMENT '允许访问的MCP工具分类',
+    status              varchar(16)   CHARACTER SET ascii COLLATE ascii_bin NOT NULL DEFAULT 'ACTIVE' COMMENT '状态(ACTIVE/DISABLED/REVOKED)',
+    expire_time         datetime(3)   DEFAULT NULL COMMENT '过期时间(NULL表示长期有效)',
+    max_daily_requests  int           NOT NULL DEFAULT 2000 COMMENT '每日最大请求配额',
+    used_requests_today int           NOT NULL DEFAULT 0 COMMENT '今日已用请求数',
+    last_used_time      datetime(3)   DEFAULT NULL COMMENT '最后活跃时间',
+    last_rotated_time   datetime(3)   DEFAULT NULL COMMENT '最后轮换时间',
+    rotation_count      int           NOT NULL DEFAULT 0 COMMENT '累计轮换次数',
+    remark              varchar(500)  DEFAULT NULL COMMENT '用途备注',
+    create_dept         bigint        DEFAULT NULL COMMENT '创建部门',
+    create_by           bigint        DEFAULT NULL COMMENT '创建者',
+    create_time         datetime(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+    update_by           bigint        DEFAULT NULL COMMENT '更新者',
+    update_time         datetime(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    del_flag            char(1)       NOT NULL DEFAULT '0' COMMENT '逻辑删除(0存在 1删除)',
+    PRIMARY KEY (token_id),
+    UNIQUE KEY uk_authz_token_hash (token_hash),
+    KEY idx_authz_token_tenant_user_status (tenant_id, user_id, status),
+    KEY idx_authz_token_agent_code (agent_code),
+    CONSTRAINT ck_authz_token_status CHECK (status IN ('ACTIVE', 'DISABLED', 'REVOKED')),
+    CONSTRAINT ck_authz_token_rotation_count CHECK (rotation_count >= 0),
+    CONSTRAINT ck_authz_token_del_flag CHECK (del_flag IN ('0', '1'))
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = 'Agent访问凭据表';
+
+-- 验证：空库执行后预期返回12
 SELECT COUNT(*) AS platform_auth_table_count
 FROM information_schema.tables
 WHERE table_schema = DATABASE()
@@ -358,5 +392,6 @@ WHERE table_schema = DATABASE()
     'authz_policy_operation_log',
     'authz_grant',
     'authz_grant_scope',
-    'authz_decision_log'
+    'authz_decision_log',
+    'authz_agent_token'
   );

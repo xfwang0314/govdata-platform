@@ -18,6 +18,10 @@
     <dependencies>
         <dependency>
             <groupId>org.dromara</groupId>
+            <artifactId>ruoyi-common-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dromara</groupId>
             <artifactId>govdata-api</artifactId>
         </dependency>
         <dependency>
@@ -27,6 +31,10 @@
         <dependency>
             <groupId>org.dromara</groupId>
             <artifactId>ruoyi-common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>ruoyi-common-json</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>

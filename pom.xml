@@ -15,6 +15,7 @@
     <properties>
         <revision>5.6.2</revision>
         <spring-boot.version>3.5.15</spring-boot.version>
+        <spring-ai.version>1.1.7</spring-ai.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>17</java.version>
@@ -139,6 +140,11 @@
             <dependency>
                 <groupId>org.dromara</groupId>
                 <artifactId>platform-api</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>platform-mcp</artifactId>
                 <version>${revision}</version>
             </dependency>
 
@@ -372,6 +378,16 @@
             </dependency>
             <dependency>
                 <groupId>org.dromara</groupId>
+                <artifactId>govdata-metadata</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
+                <artifactId>govdata-metadata-harvest</artifactId>
+                <version>${revision}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.dromara</groupId>
                 <artifactId>govdata-query</artifactId>
                 <version>${revision}</version>
             </dependency>
@@ -423,8 +439,8 @@
                                     <message>请使用项目 Maven Wrapper（Maven 3.9.9）执行构建。</message>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
-                                    <version>[17,21)</version>
-                                    <message>项目仅支持 JDK 17，21请检查 JAVA_HOME。</message>
+                                    <version>[17,18),[21,22)</version>
+                                    <message>项目仅支持 JDK 17、21，请检查 JAVA_HOME。</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>

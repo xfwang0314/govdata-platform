@@ -6,4 +6,5 @@ import java.util.Optional;
 public interface QueryResourceSchemaProvider {
 
     Optional<QueryResourceSchema> findByResourceId(Long resourceId);
+
 }

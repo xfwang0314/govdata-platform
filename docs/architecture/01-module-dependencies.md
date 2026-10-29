@@ -1,9 +1,9 @@
 # 模块与依赖架构
 
-- 状态：架构基线 v1（目标结构）
+- 状态：架构基线 v1（目标结构，实施状态另见 status 文档）
 - 适用范围：Maven 模块、Java 包依赖
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-01
+- 最后更新：2026-08-31
 
 ## 目标结构
 
@@ -23,6 +23,7 @@ govdata-api
 govdata-modules
 ├─ govdata-datasource
 ├─ govdata-metadata
+├─ govdata-metadata-harvest
 ├─ govdata-query
 ├─ govdata-exchange
 ├─ govdata-sharing
@@ -31,6 +32,13 @@ govdata-modules
 ├─ govdata-quality
 └─ govdata-ontology
 ```
+
+当前已装配的自研实现模块包括 `platform-auth`、`platform-secret`、`platform-mcp`、
+`govdata-datasource`、`govdata-metadata`、`govdata-metadata-harvest` 和 `govdata-query`。
+其中元数据目录与采集运行保持为两个独立模块。`platform-event`、`govdata-exchange`、
+`govdata-sharing`、`govdata-serving`、`govdata-standard`、`govdata-quality` 和
+`govdata-ontology` 尚未创建 Maven 实现模块；详情见
+[当前实施状态](../implementation-status.md)。
 
 ## 允许方向
 

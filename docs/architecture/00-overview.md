@@ -3,7 +3,7 @@
 - 状态：架构基线 v1（已确认）
 - 适用范围：全仓库
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-01
+- 最后更新：2026-08-21
 
 ## 目标
 
@@ -21,8 +21,8 @@ govdata-*           政务数据领域能力
 ruoyi-admin          单体运行时装配
 ```
 
-目标模块结构见 [模块依赖](01-module-dependencies.md)。当前尚未完成的模块迁移和新增，
-应在文档评审后分阶段实施，本文不代表代码已经具备全部能力。
+目标模块结构见 [模块依赖](01-module-dependencies.md)。当前已落地模块、运行边界和未实现能力以
+[当前实施状态](../implementation-status.md) 为准；本文不代表代码已经具备全部目标能力。
 
 ## 核心架构原则
 
@@ -57,7 +57,8 @@ Domain Module
 - WarmFlow 管人工审批，嵌入式 Quartz 管后台调度，SeaTunnel 管数据交换执行。
 - 运行时数据范围统一使用 ABAC；RuoYi 的 `data_scope` 字段、角色部门范围表和旧拦截实现已移除。
 - 本体第一版只管理概念、关系和语义映射，不承载海量知识图谱实例。
-- Agent/MCP 是后续能力，但身份、委托和授权 seam 从第一版设计中保留。
+- Agent/MCP 已完成 Streamable HTTP、Agent 凭据和 OWNER_INHERIT 的最小可用链路；正式 Delegation、
+Agent Task 与写入型跨部门 Tool 仍属后续能力。
 
 全模块控制库表的逻辑/物理设计入口见
 [全模块数据库设计总览](../database/00-table-design-overview.md)。

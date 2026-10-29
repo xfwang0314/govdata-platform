@@ -5,6 +5,7 @@ import lombok.Data;
 /** 授权资源总账筛选条件。 */
 @Data
 public class ResourceQuery {
+    private Long resourceId;
     private String keyword;
     private String resourceType;
     private String sourceModule;

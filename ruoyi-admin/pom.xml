@@ -97,11 +97,23 @@
             <groupId>org.dromara</groupId>
             <artifactId>platform-secret</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>platform-mcp</artifactId>
+        </dependency>
 
         <!-- 政务数据中台业务模块 -->
         <dependency>
             <groupId>org.dromara</groupId>
             <artifactId>govdata-datasource</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>govdata-metadata</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>govdata-metadata-harvest</artifactId>
         </dependency>
         <dependency>
             <groupId>org.dromara</groupId>

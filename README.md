@@ -30,7 +30,9 @@ govdata-platform
 │  └─ ruoyi-demo               框架能力示例
 ├─ platform-api               平台通用能力 API 契约
 ├─ platform-modules           平台通用能力实现模块
-│  └─ platform-auth            Resource、ABAC、Grant 与授权审计
+│  ├─ platform-auth            Resource、ABAC、Grant 与授权审计
+│  ├─ platform-secret          SecretRef、密文版本与凭据审计
+│  └─ platform-mcp             Streamable HTTP、Agent 凭据与 Tool 调度
 ├─ govdata-api                 数据中台业务 API 契约
 ├─ govdata-modules             数据中台领域业务模块
 │  ├─ govdata-datasource       数据源注册、连接器目录与连通测试
@@ -44,9 +46,14 @@ govdata-platform
 `com.xfwang.platform` 和 `com.xfwang.govdata` 命名空间。项目不提供 RuoYi 在线代码生成器。
 
 动态授权模块的边界、策略格式和接入方式参见
-[`docs/architecture/platform-auth.md`](docs/architecture/platform-auth.md)。
+[`docs/architecture/03-rbac-abac-grant-delegation.md`](docs/architecture/03-rbac-abac-grant-delegation.md)、
+[`docs/architecture/04-resource-model.md`](docs/architecture/04-resource-model.md) 和
+[`docs/domain/platform-auth/CONTEXT.md`](docs/domain/platform-auth/CONTEXT.md)。
 全模块 MySQL 8 表设计参见
 [`docs/database/00-table-design-overview.md`](docs/database/00-table-design-overview.md)。
+当前已经可用与仍属设计阶段的模块，参见
+[`docs/implementation-status.md`](docs/implementation-status.md)。
+全部文档的阅读顺序和命名规范参见 [`docs/README.md`](docs/README.md)。
 
 ## 环境要求
 
@@ -65,9 +72,10 @@ MySQL 默认使用 `script/sql` 下的脚本。全新环境：
 
 1. 阅读 `script/sql/baseline/manifest.md`，确认目标是可丢弃的空库。
 2. 按清单顺序执行 `script/sql/baseline/` 中的基线脚本。
-3. 已部署环境只执行 `script/sql/upgrade/` 中经过评审的前向升级脚本，不重复执行 Baseline。
+3. 已部署环境只执行 `script/sql/upgrade/manifest.md` 登记的前向升级脚本，不重复执行 Baseline。
 
-已有环境不要重复执行基线脚本，应按版本顺序执行 `script/sql/upgrade` 中尚未应用的增量脚本。
+已有环境不要重复执行基线脚本，应按 `script/sql/upgrade/manifest.md` 确认并执行尚未应用的增量脚本；
+`script/sql/update/` 仅保留 RuoYi/WarmFlow 上游历史升级档案，不是本项目常规升级入口。
 
 平台控制库第一版只支持 MySQL 8。Oracle、Redis、SFTP、Doris 和 ClickHouse 是被管理的外部数据源，不代表平台控制库支持这些方言。初始化前应确认字符集、时区、数据库账号权限及脚本版本，禁止直接在已有生产库中重复执行初始化脚本。
 

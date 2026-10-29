@@ -1,9 +1,9 @@
 # 数据源
 
-- 状态：P0 后端已实现，等待页面联调
+- 状态：P0 后端已实现，页面联调以当前前端分支为准
 - 适用范围：数据源上下文
 - 所有者：GovData Platform Team
-- 最后更新：2026-08-05
+- 最后更新：2026-08-22
 
 数据源上下文管理外部系统连接实例及其能力，不拥有技术元数据或数据交换任务。
 
@@ -36,8 +36,8 @@ _Avoid_: 可任意维护的展示字典
 ## 第一版实现
 
 - `govdata-datasource` 拥有 `gd_datasource` 和 `gd_datasource_connection_test`。
-- 页面功能权限由 Sa-Token 校验。数据源功能完成前暂不创建授权 Resource，也不执行数据源 ABAC/Grant 决策；
-  `authz_resource_id` 保留为空，后续统一开启投影注册。
+- 页面功能权限由 Sa-Token 校验；数据源创建、状态变更、删除、连接测试和元数据探查通过 Resource 投影与
+  ABAC/Grant 执行对象级授权，列表通过批量 `AuthorizedResourceScope` 合并授权范围。
 - 第一版内置 MySQL、Oracle、PostgreSQL、ClickHouse 四种 JDBC `ConnectionTester`，以及 Redis 单机、
   HTTP API 和 SFTP `ConnectionTester`；平台控制库仍只支持 MySQL 8。
 - 页面通过 Connector Catalog 获取基础连接字段、可选连接预览、认证方式和能力，不自行维护 Connector 版本。
@@ -61,6 +61,12 @@ _Avoid_: 可任意维护的展示字典
 - 数据源列表在分页前消费 `AuthorizedResourceScope`：管理员不附加授权资源 ID 条件，普通主体使用平台授权
   批量解析的受限 ID 集合，默认拒绝时直接返回空页；禁止逐数据源调用对象授权决策。
 - 每次连接测试保存脱敏结果和稳定原因码，页面可以分页查询测试历史。
+- 元数据探查保留 Connector 返回的 Catalog/Schema 定位，并按命名空间分组读取字段；MySQL database 映射为
+  Catalog，不重复生成同名 Schema，不同命名空间的同名表不得串表。未指定 MySQL Catalog 时探查当前账号
+  可见的全部非系统 database，指定后只探查该 Catalog。
 - 外部异常统一映射为认证失败、数据库不存在、连接超时、拒绝连接、主机不可达、TLS 握手失败、驱动不可用等
   稳定原因码；响应、日志和测试记录不得保存驱动异常原文。
 - 凭据解析统一由 `platform-secret` 提供的 `SecretProvider`（`secret:sec_xxx`）负责，执行多租户与审计管控。
+- MySQL 提供 `QueryExecutionAdapter`，仅从 `govdata-query` 的 QUERY 授权上下文进入；要求数据源启用、连接测试成功且为 READ_ONLY，凭据用途为 `DATASOURCE_QUERY`。
+- 在线查询不信任连接预览或自定义 JDBC 参数；由结构化端点重建连接，验证账号仅有 SELECT/USAGE 且未启用角色，使用只读事务和参数绑定。生产环境强制 TLS 证书与主机名校验。
+- 查询并发上限为全局 32、租户 16、数据源 4，散列槽冲突时保守限流；超出立即拒绝，不排队。部署及测试限制见 [查询验证手册](../../testing/03-mysql-query-mcp.md)。

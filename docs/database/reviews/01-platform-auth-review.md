@@ -1,15 +1,15 @@
-# Platform Auth 表结构评审
+# 平台授权与 Agent 凭据表结构评审
 
 - 状态：第一版核心结构已迁移到 Java 实现与空库基线
-- 评审范围：`platform-auth` 第一版 11 张表
-- DDL：[01-platform-auth-mysql.sql](../ddl/01-platform-auth-mysql.sql)
+- 评审范围：`platform-auth` 与 `platform-mcp` 第一版 12 张表
+- DDL：[平台授权基线脚本](../../../script/sql/baseline/20_platform_auth.sql)
 - 数据库：MySQL 8.0
-- 最后更新：2026-08-02
+- 最后更新：2026-08-21
 
 ## 结论
 
 第一版采用 Human 主体的 `Resource + ABAC + AuthorizationGrant` 核心子集，满足租户硬隔离、
-版本化 Policy、显式 Grant、结构化 Obligation 和追加式授权审计要求。DDL 可以作为空库目标结构
+版本化 Policy、显式 Grant、结构化 Obligation、追加式授权审计和 Agent 凭据生命周期要求。DDL 可以作为空库目标结构
 评审。Java 实现与 `script/sql/baseline/20_platform_auth.sql` 已同步到该结构；该脚本仍是破坏性的空库基线，不能直接
 应用到包含旧授权数据的运行库。
 
@@ -29,6 +29,7 @@ SERVICE、AttributeSchema、Agent Delegation 和 BreakGlass 的表定义继续�
 9. `authz_grant`
 10. `authz_grant_scope`
 11. `authz_decision_log`
+12. `authz_agent_token`
 
 全部引用关系使用逻辑外键，不建立数据库物理外键。建表顺序仍按聚合和查询依赖排列，便于阅读、
 初始化和未来拆分。
@@ -56,7 +57,8 @@ SERVICE、AttributeSchema、Agent Delegation 和 BreakGlass 的表定义继续�
 | `valid_from/valid_to` | `effective_time/expire_time` | Entity 与生命周期服务已统一命名 |
 | 状态主要使用 `char(1)` | 使用稳定英文状态 code | Entity、枚举和查询条件已同步 |
 | 决策日志以 `user_id/dept_id` 为主 | 使用 `subject_type/subject_id` 和最小快照 | 决策日志已按目标结构写入 |
-| 无 SERVICE、Delegation、BreakGlass、AttributeSchema | 后续阶段独立模型 | 第一版不迁移、不建表、不开放入口 |
+| 无 SERVICE、显式 Delegation、BreakGlass、AttributeSchema | 后续阶段独立模型 | 第一版不迁移、不建表、不开放入口 |
+| 无 Agent 凭据 | `authz_agent_token` 管理凭据摘要、状态、有效期、模块上限与轮换版本 | 已接入 MCP `OWNER_INHERIT`，不等同于显式 Delegation |
 
 ## 初始化说明
 
@@ -65,9 +67,9 @@ SERVICE、AttributeSchema、Agent Delegation 和 BreakGlass 的表定义继续�
 
 ## 验证结果
 
-- 第一版包含 11 张执行建表语句，名称完整且无重复。
+- 第一版包含 12 张执行建表语句，名称完整且无重复。
 - 所有表、索引和约束标识符均小于 MySQL 64 字符限制。
-- SERVICE、AttributeSchema、Delegation 和 BreakGlass 定义仅作为注释附录保留，不会被 MySQL 执行。
+- SERVICE、AttributeSchema、显式 Delegation 和 BreakGlass 定义仅作为注释附录保留，不会被 MySQL 执行。
 - 当前机器没有 MySQL Client 或 Docker，因此尚未执行真实 MySQL 8 空库建表验证。
 
 ## 进入实现前必须补充的测试

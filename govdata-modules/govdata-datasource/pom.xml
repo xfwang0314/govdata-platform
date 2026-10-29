@@ -15,6 +15,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.dromara</groupId>
+            <artifactId>govdata-api</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
         </dependency>

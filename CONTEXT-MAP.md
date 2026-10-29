@@ -1,11 +1,14 @@
 # 政务数据中台上下文地图
 
+当前模块的真实实施边界先查阅 [文档中心](docs/README.md) 和
+[当前实施状态](docs/implementation-status.md)；下述领域关系同时包含已实现和目标设计。
+
 ## 上下文
 
 - [平台授权](docs/domain/platform-auth/CONTEXT.md) — 统一 Resource、Policy、AuthorizationGrant、Delegation 与授权决策。
 - [数据源](docs/domain/datasource/CONTEXT.md) — 管理连接实例、凭据引用和 Connector 能力。
 - [受控查询](docs/domain/query/CONTEXT.md) — 统一消费授权约束并执行外部数据在线只读查询。
-- [元数据](docs/domain/metadata/CONTEXT.md) — 管理技术资产、采集快照、血缘和治理属性。
+- [元数据](docs/domain/metadata/CONTEXT.md) — 管理当前技术资产、自动修订历史、结构差异和治理属性；采集执行由 Metadata Harvest 上下文承担。
 - [数据交换](docs/domain/exchange/CONTEXT.md) — 管理交换任务并委托 SeaTunnel 执行数据传输。
 - [数据共享](docs/domain/sharing/CONTEXT.md) — 管理租户内部共享申请、协议、订阅和交付。
 - [数据服务](docs/domain/serving/CONTEXT.md) — 将受控数据查询发布为版本化数据 API。
@@ -43,4 +46,4 @@
 - [外部数据源受控查询 SQL 规范](docs/standards/external-query-sql.md)
 - [手工数据库初始化与升级](docs/standards/manual-database-upgrade.md)
 - [SQL 变更检查清单](.agents/checklists/sql-change.md)
-- [SQL 规范现状差距报告](docs/database/SQL-STANDARDS-GAP-REPORT.md)
+- [SQL 规范现状差距报告](docs/database/sql-standards-gap.md)
